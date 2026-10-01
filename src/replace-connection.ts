@@ -5,6 +5,7 @@ import type { Bridge } from './bridge.js';
 import { parse } from './artifacts.js';
 import { contextSchema, remoteId, bindingSchema } from './schema.js';
 import { fail } from './errors.js';
+import { CLI_NAME } from './brand.js';
 
 /** CLI-only, after the user confirms moving this folder to another help centre. The device credential is untouched. */
 export async function replaceConnection(bridge: Bridge, expectedProjectId: string, projectId: string) {
@@ -14,7 +15,7 @@ export async function replaceConnection(bridge: Bridge, expectedProjectId: strin
   if (context.project.id !== projectId) fail('invalid_response', 'Project identity mismatch.');
   return bridge.lock(async () => {
     const previous = await bridge.binding();
-    if (previous.project_id !== expectedProjectId) fail('destination_mismatch', 'The workspace connection changed during setup. Run supportpages init again to review it.');
+    if (previous.project_id !== expectedProjectId) fail('destination_mismatch', `The workspace connection changed during setup. Run ${CLI_NAME} init again to review it.`);
     await bridge.runs.assertAvailable();
     if ((await bridge.setup.progress())?.status === 'running') fail('workspace_busy', 'Finish or stop project analysis before changing the connected help centre.');
     const root = bridge.stateRoot;

@@ -1,13 +1,25 @@
 import { z } from 'zod';
 import type { Bridge } from './bridge.js';
 import { fail, publicError } from './errors.js';
+import { CLI_NAME } from './brand.js';
 
-export const writerAction = z.enum(['read_articles', 'create_article', 'update_article', 'edit_article', 'publish_article', 'unpublish_article', 'delete_article', 'find_article_gaps', 'suggest_sections', 'recommend_articles', 'review_sections', 'review_recommendations', 'create_video_walkthrough', 'get_operation']);
+export const writerAction = z.enum(['read_articles', 'create_article', 'update_article', 'edit_article', 'publish_article', 'unpublish_article', 'delete_article', 'find_article_gaps', 'suggest_sections', 'recommend_articles', 'review_sections', 'review_recommendations', 'create_video_walkthrough', 'get_operation', 'generate_help_centre']);
 export type WriterAction = z.infer<typeof writerAction>;
 export const actionDecisionSchema = z.object({ action: writerAction, allowed: z.boolean(), execution: z.enum(['local', 'remote', 'hosted']), required_scopes: z.array(z.string()),
   next_step: z.object({ code: z.string().max(100), message: z.string().max(1000), requested_action: writerAction, missing_scopes: z.array(z.enum(['read', 'import', 'publish', 'manage', 'generate'])).optional(), url: z.url().optional() }).nullable(),
 }).refine(value => value.allowed === (value.next_step === null));
-export const writerCapabilitiesSchema = z.object({ version: z.literal(1), actions: z.record(writerAction, actionDecisionSchema) });
+/** Actions this Writer does not know are ignored and missing ones read as unadvertised,
+ * so a server that adds an action never breaks an older Writer (and vice versa). */
+export const writerCapabilitiesSchema = z.object({ version: z.literal(1), actions: z.record(z.string(), z.unknown()).transform((value, ctx) => {
+  const actions: Partial<Record<WriterAction, ActionDecision>> = {};
+  for (const [name, raw] of Object.entries(value)) {
+    if (!writerAction.safeParse(name).success) continue;
+    const decision = actionDecisionSchema.safeParse(raw);
+    if (!decision.success) { ctx.addIssue({ code: 'custom', message: `Invalid decision for ${name}`, path: [name] }); return z.NEVER; }
+    actions[name as WriterAction] = decision.data;
+  }
+  return actions;
+}) });
 export type ActionDecision = z.infer<typeof actionDecisionSchema>;
 
 const blocked = (action: WriterAction, code: string, message: string): ActionDecision => ({ action, allowed: false, execution: 'remote', required_scopes: [], next_step: { code, message, requested_action: action } });
@@ -20,7 +32,7 @@ export async function resolveAction(bridge: Bridge, action: WriterAction, articl
   if (action === 'create_article' && (destination === 'local' || destination === 'none' && !bridge.api.configured())) {
     return { action, allowed: true, execution: 'local', required_scopes: [], next_step: null };
   }
-  if (!bridge.api.configured()) return blocked(action, 'authentication_required', 'Sign in or create an account with supportpages login, then select a help centre and retry this action.');
+  if (!bridge.api.configured()) return blocked(action, 'authentication_required', `Sign in or create an account with ${CLI_NAME} login, then select a help centre and retry this action.`);
   try {
     if (destination !== 'hosted') {
       await bridge.listProjects(); // Validate credentials before asking for a project.
@@ -59,7 +71,7 @@ export async function resolveAction(bridge: Bridge, action: WriterAction, articl
 export function requireExecution(decision: ActionDecision, execution: ActionDecision['execution']) {
   if (!decision.allowed) {
     const next = decision.next_step!;
-    const guidance = next.url ? ` Open: ${next.url}` : next.missing_scopes?.length ? ` Run supportpages login --scopes ${next.missing_scopes.join(',')}, or use supportpages_request_permissions.` : '';
+    const guidance = next.url ? ` Open: ${next.url}` : next.missing_scopes?.length ? ` Run ${CLI_NAME} login --scopes ${next.missing_scopes.join(',')}, or use supportpages_request_permissions.` : '';
     fail(next.code, next.message + guidance, { writer_action: decision });
   }
   if (decision.execution !== execution) fail('hosted_action_required', 'This action runs in SupportPages. Use the hosted action tool; do not launch a local writer.', { writer_action: decision });

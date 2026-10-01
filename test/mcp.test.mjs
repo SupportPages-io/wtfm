@@ -80,6 +80,6 @@ test('a local folder works over stdio with no credential: local status, context 
   assert.equal(upload.structuredContent.error.code,'local_workspace');
   assert.equal(upload.structuredContent.error.next_tool,'supportpages_init');
   assert.match(upload.structuredContent.error.message,/sign in or create a free SupportPages.io account.*supportpages_init with host_local=true/);
-  assert.doesNotMatch(upload.structuredContent.error.message,/in (the|a) terminal|supportpages publish\b/);
+  assert.doesNotMatch(upload.structuredContent.error.message,/in (the|a) terminal|(?:wtfm|supportpages) publish\b/);
   assert.equal(stderr,'');
 });

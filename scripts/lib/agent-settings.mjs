@@ -4,6 +4,7 @@ import { Cancelled } from './terminal.mjs';
 
 export const agentLabel = agent => agent === 'claude' ? 'Claude Code' : 'Codex';
 import { efforts, modelValid, settingsFile, modelSettings, readAgentSettings } from '../../dist/agent-settings.js';
+import { CLI_NAME } from './brand.mjs';
 export { modelSettings, readAgentSettings, executionSettings } from '../../dist/agent-settings.js';
 
 // Preferred families for articles, best first: Opus then Fable on Claude Code, Sol
@@ -55,7 +56,7 @@ export async function availableAgents(session, deps, clients = []) {
     if (!clients.length && (await deps.run(agent, ['mcp', 'get', session.options.dev ? 'supportpages-dev' : 'supportpages'], { capture: true })).code !== 0) continue;
     available.push(agent);
   }
-  if (!available.length) fail('agent_unavailable', 'No coding agent is connected yet. Install Claude Code or Codex, then run supportpages setup to connect it.');
+  if (!available.length) fail('agent_unavailable', `No coding agent is connected yet. Install Claude Code or Codex, then run ${CLI_NAME} setup to connect it.`);
   return available;
 }
 
@@ -68,7 +69,7 @@ async function chooseAnalysisAgent(ui, clients, preferred) {
   if (clients.length < 2) return clients[0];
   const ordered = [...clients].sort((a, b) => (b === 'claude') - (a === 'claude'));
   const initial = clients.includes(preferred) ? preferred : ordered[0];
-  ui.line('Project analysis runs in one agent and becomes the default for supportpages analyse. When you write, SupportPages uses whichever agent you are working in.');
+  ui.line(`Project analysis runs in one agent and becomes the default for ${CLI_NAME} analyse. When you write, SupportPages uses whichever agent you are working in.`);
   return ui.choose('Which coding agent should run project analysis?', ordered.map(value => ({ value, label: agentLabel(value),
     ...(value === 'claude' ? { hint: 'Recommended' } : {}) })), ordered.indexOf(initial));
 }
@@ -77,7 +78,7 @@ export async function configureAgent(session, deps, { clients = [], agent: reque
   const bridge = await session.bridge(), saved = await readAgentSettings(bridge);
   const available = await availableAgents(session, deps, clients);
   const { ui } = deps;
-  if (requestedAgent && !available.includes(requestedAgent)) fail('agent_unavailable', 'The selected coding agent is not connected. Run supportpages setup to connect it.');
+  if (requestedAgent && !available.includes(requestedAgent)) fail('agent_unavailable', `The selected coding agent is not connected. Run ${CLI_NAME} setup to connect it.`);
   const preferred = requestedAgent ?? saved.agent;
   const agent = available.length === 1
     ? available[0]
@@ -95,7 +96,7 @@ export async function configureAgent(session, deps, { clients = [], agent: reque
 export async function configureAgents(session, deps, { clients, agent: requestedAgent } = {}) {
   const bridge = await session.bridge(), saved = await readAgentSettings(bridge);
   const available = await availableAgents(session, deps, clients);
-  if (available.length !== clients.length) fail('agent_unavailable', 'A selected coding agent is no longer available. Run supportpages init again.');
+  if (available.length !== clients.length) fail('agent_unavailable', `A selected coding agent is no longer available. Run ${CLI_NAME} init again.`);
   const models = { ...saved.models };
   for (const agent of clients) {
     deps.ui.line(`Configure ${agentLabel(agent)} for this project.`);
@@ -132,7 +133,7 @@ function describeModel(agent, settings, discovered) {
 export async function confirmAgentModels(session, deps, { clients, agent: requestedAgent } = {}) {
   const bridge = await session.bridge(), saved = await readAgentSettings(bridge);
   const available = await availableAgents(session, deps, clients);
-  if (available.length !== clients.length) fail('agent_unavailable', 'A selected coding agent is no longer available. Run supportpages setup to repair it.');
+  if (available.length !== clients.length) fail('agent_unavailable', `A selected coding agent is no longer available. Run ${CLI_NAME} setup to repair it.`);
   const { ui } = deps;
   const models = { ...saved.models };
   for (const agent of clients) {
@@ -171,7 +172,7 @@ async function chooseModelSettings(agent, saved, bridge, deps, listed) {
     discovered = await (deps.discoverModels ?? discoverModels)(agent, { cwd: bridge.ws.root, env: deps.env });
   } catch (error) {
     if (error instanceof Cancelled) throw error;
-    ui.line(`Could not get models from ${agentLabel(agent)}. You can keep your saved model, use the agent-configured model, or enter a model name. Check your coding agent's sign-in and version, then retry with supportpages configure.`);
+    ui.line(`Could not get models from ${agentLabel(agent)}. You can keep your saved model, use the agent-configured model, or enter a model name. Check your coding agent's sign-in and version, then retry with ${CLI_NAME} configure.`);
   }
   const recommended = recommendedModel(agent, discovered);
   const models = [

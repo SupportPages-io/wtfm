@@ -31,7 +31,7 @@ test('the first three local completions and every third afterwards carry a rotat
   for (let i = 1; i < shown.length; i++) assert.notEqual(category(shown[i]), category(shown[i - 1]));
   for (const invitation of shown) {
     assert.deepEqual(Object.keys(invitation).sort(), ['id', 'message']);
-    assert.doesNotMatch(invitation.message, /https?:|supportpages publish|terminal/, 'no links or terminal commands: the agent makes the offer');
+    assert.doesNotMatch(invitation.message, /https?:|(?:wtfm|supportpages) publish|terminal/, 'no links or terminal commands: the agent makes the offer');
   }
 });
 
@@ -91,7 +91,7 @@ test('a saved local article carries the invitation once, after the path, without
   assert.equal(result.show_to_user, `${result.hosting_invitation.message} If you'd like, I can host it on a SupportPages.io help centre.`);
   assert.match(result.instructions[0], /^Show show_to_user verbatim as its own paragraph, right after the saved path/);
   assert.match(text, /ask whether to sign in or create a free SupportPages.io account and call supportpages_publish/);
-  assert.doesNotMatch(text, /terminal|supportpages publish\b/);
+  assert.doesNotMatch(text, /terminal|(?:wtfm|supportpages) publish\b/);
   assert.match(text, /Never start sign-in or upload without that request/);
   assert.match(text, /Do not automatically ask whether to publish or start sign-in/);
   assert.match(text, /supportpages_set_hosting_reminders with enabled=false/);

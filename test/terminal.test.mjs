@@ -189,6 +189,8 @@ test('source installer can load the terminal before npm dependencies are install
   t.after(() => rm(directory, { recursive: true, force: true }));
   const filename = path.join(directory, 'terminal.mjs');
   await copyFile(new URL('../scripts/lib/terminal.mjs', import.meta.url), filename);
+  // Its only local import is the dependency-free command-name constant.
+  await copyFile(new URL('../scripts/lib/brand.mjs', import.meta.url), path.join(directory, 'brand.mjs'));
   const result = spawnSync(process.execPath, ['--input-type=module', '-e',
     `import {createTerminal} from ${JSON.stringify(pathToFileURL(filename).href)}; createTerminal().line('Bootstrap ready');`], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);

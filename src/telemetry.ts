@@ -3,12 +3,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { devicePreferences, saveDevicePreferences, type DevicePreferences } from './preferences.js';
 import { errorReport } from './telemetry-scrub.js';
+import { CLI_NAME } from './brand.js';
 
 /** Anonymous usage counts and crash reports, on by default and disclosed once.
  * Sent without credentials to the Writer's own API origin, so nothing ties
  * them to an account. See docs/writer/client/telemetry.md in the RTFM repo
  * for the exact fields; nothing else is ever sent. */
-export type TelemetryEvent = 'project_init' | 'article_completed' | 'walkthrough_completed';
+export type TelemetryEvent = 'project_init' | 'article_completed' | 'walkthrough_completed' | 'yolo_started' | 'yolo_completed';
 type Properties = Record<string, string | number | undefined>;
 type Queued = { event: string; properties?: Properties; error?: { message?: string; frames: string[] } };
 
@@ -114,7 +115,7 @@ export class Telemetry {
         writer_version: state.version, host_client: this.clientName?.()?.slice(0, 64),
         os: process.platform, arch: process.arch, node_major: process.versions.node.split('.')[0],
       }, events });
-      if (/^(1|true)$/i.test(this.env.SUPPORTPAGES_TELEMETRY_DEBUG ?? '')) (this.options.log ?? (line => process.stderr.write(line)))(`supportpages telemetry → ${this.endpoint} ${body}\n`);
+      if (/^(1|true)$/i.test(this.env.SUPPORTPAGES_TELEMETRY_DEBUG ?? '')) (this.options.log ?? (line => process.stderr.write(line)))(`${CLI_NAME} telemetry → ${this.endpoint} ${body}\n`);
       try {
         await (this.options.fetcher ?? fetch)(this.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, redirect: 'error', signal: AbortSignal.timeout(3000) });
       } catch { /* Offline, blocked or an older server: counts are best-effort. */ }
@@ -142,8 +143,8 @@ export class Telemetry {
     const status = telemetryStatus(this.env, prefs);
     return { ...status, endpoint: this.endpoint,
       ...(typeof prefs.install_id === 'string' ? { install_id: prefs.install_id } : {}),
-      sends: 'Anonymous install id, Writer version, coding client name, OS, CPU architecture, Node.js major version; counts of installs, project setups, finished articles and walkthroughs (with outcome, location and duration); and error class, code and stack frames for unexpected errors. Never code, file paths, article titles or content, or account details.',
-      disable: 'Ask the agent to turn telemetry off (supportpages_set_telemetry), run supportpages telemetry off, or set SUPPORTPAGES_TELEMETRY=0 or DO_NOT_TRACK=1.' };
+      sends: 'Anonymous install id, Writer version, coding client name, OS, CPU architecture, Node.js major version; counts of installs, project setups, finished articles, walkthroughs and whole-help-centre runs (with outcome, location and duration); and error class, code and stack frames for unexpected errors. Never code, file paths, article titles or content, or account details.',
+      disable: `Ask the agent to turn telemetry off (supportpages_set_telemetry), run ${CLI_NAME} telemetry off, or set SUPPORTPAGES_TELEMETRY=0 or DO_NOT_TRACK=1.` };
   }
 
   async setEnabled(enabled: boolean) {

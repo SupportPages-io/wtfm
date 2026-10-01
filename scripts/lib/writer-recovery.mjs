@@ -1,5 +1,6 @@
 import { fail } from '../../dist/errors.js';
 import { Cancelled } from './terminal.mjs';
+import { CLI_NAME } from './brand.mjs';
 
 const clean = value => String(value).replace(/[\p{Cc}\p{Cf}]/gu, '');
 
@@ -10,7 +11,7 @@ export async function ensureWriterAvailable(bridge, ui) {
     if (!active) return;
     const { run, state_directory: stateRoot } = active;
     if (stateRoot !== bridge.stateRoot) {
-      fail('generation_active', `An unfinished article run belongs to another SupportPages.io connection (${clean(run.api_origin ?? stateRoot)}). Run supportpages init for that connection${stateRoot.includes('/dev/') ? ' with --dev' : ' without --dev'} to clear it after its writer has stopped.`, { run_id: run.id, state_directory: stateRoot });
+      fail('generation_active', `An unfinished article run belongs to another SupportPages.io connection (${clean(run.api_origin ?? stateRoot)}). Run ${CLI_NAME} init for that connection${stateRoot.includes('/dev/') ? ' with --dev' : ' without --dev'} to clear it after its writer has stopped.`, { run_id: run.id, state_directory: stateRoot });
     }
     const message = [
       clean(run.title ?? 'Untitled article'),

@@ -1,6 +1,7 @@
 import { fail } from './errors.js';
 import { Workspace } from './workspace.js';
 import { z } from 'zod';
+import { CLI_NAME } from './brand.js';
 
 type SettingsWorkspace = { ws: Workspace; stateRoot: string };
 
@@ -12,11 +13,11 @@ export const settingsFile = (bridge: SettingsWorkspace) => `${bridge.stateRoot}/
 export function modelSettings(agent: string, saved: unknown = {}) {
   if (!efforts[agent]) fail('invalid_agent', 'Choose Claude Code or Codex.');
   const values = z.object({ model: z.unknown().optional(), effort: z.unknown().optional() }).safeParse(saved);
-  if (!values.success) fail('invalid_configuration', 'Invalid coding-agent settings. Run supportpages configure to change them.');
+  if (!values.success) fail('invalid_configuration', `Invalid coding-agent settings. Run ${CLI_NAME} configure to change them.`);
   const model = values.data.model === undefined ? (agent === 'claude' ? 'sonnet' : null) : values.data.model;
   const effort = values.data.effort === undefined ? (agent === 'claude' ? 'low' : null) : values.data.effort;
   if (model !== null && !modelValid(model) || effort !== null && (typeof effort !== 'string' || !efforts[agent]!.includes(effort))) {
-    fail('invalid_configuration', 'Invalid coding-agent model or effort. Run supportpages configure to change it.');
+    fail('invalid_configuration', `Invalid coding-agent model or effort. Run ${CLI_NAME} configure to change it.`);
   }
   return { model, effort };
 }

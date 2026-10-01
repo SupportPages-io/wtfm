@@ -3,6 +3,7 @@ import { fail } from './errors.js';
 import { articleCapacitySchema } from './schema.js';
 import { capacityMessage, type ArticleCapacity } from './capacity.js';
 import { connectionFailure } from './development-tls.js';
+import { CLI_NAME } from './brand.js';
 export function developmentMode(value?: string): boolean {
   if (value === undefined || value === 'false' || value === '0') return false;
   if (value === 'true' || value === '1') return true;
@@ -25,13 +26,16 @@ export function apiOrigin(value: string, dev = false): string {
   }
   return url.origin;
 }
+export const WRITER_FEATURES = ['generate_help_centre'] as const;
 export class ApiClient {
   public origin: string;
   constructor(origin: string, private token?: string, private fetcher: typeof fetch = fetch, public dev = false) { this.origin = apiOrigin(origin, dev); }
   configured() { return Boolean(this.token); }
   async request(method: string, route: string, body?: FormData | object, idempotencyKey?: string, timeoutMs = 60_000): Promise<unknown> {
-    if (!this.token) fail('missing_credentials', 'This device is not signed in to SupportPages.io. In the terminal, run supportpages publish to host locally saved articles, or supportpages login; then call supportpages_init.');
-    const headers: Record<string, string> = { Authorization: `Bearer ${this.token}`, Accept: 'application/json' };
+    if (!this.token) fail('missing_credentials', `This device is not signed in to SupportPages.io. In the terminal, run ${CLI_NAME} publish to host locally saved articles, or ${CLI_NAME} login; then call supportpages_init.`);
+    // Name the optional actions this Writer understands, so the server lists
+    // them in capability maps only for clients that can parse them.
+    const headers: Record<string, string> = { Authorization: `Bearer ${this.token}`, Accept: 'application/json', 'X-SupportPages-Writer-Features': WRITER_FEATURES.join(',') };
     if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
     let payload: BodyInit | undefined;
     if (body instanceof FormData) payload = body;
@@ -49,7 +53,7 @@ export class ApiClient {
         generation_running: { status: 409, message: 'Wait for the current generation to finish, or keep the local preview as an editable draft in SupportPages.' },
         article_deleted: { status: 409, message: 'This article was deleted remotely. Restore it in SupportPages.io before updating it; it will not be recreated automatically.' },
         plan_limit: { status: 403, message: 'Your account’s article hosting limit has been reached. Free up article capacity or update your plan, then retry the saved upload. Reconnecting will not resolve this limit.' },
-        permission_denied: { status: 403, message: 'This token does not have permission for the requested operation. Check its scopes and project access; reconnect with supportpages init if needed.' },
+        permission_denied: { status: 403, message: `This token does not have permission for the requested operation. Check its scopes and project access; reconnect with ${CLI_NAME} init if needed.` },
         repository_connection_required: { status: 403, message: 'Connect a repository in the web app before assigning sections. Individual unsectioned articles do not require a repository connection.' },
         run_closed: { status: 409, message: 'This generation attempt is closed. The saved draft and your local files are preserved; do not overwrite browser edits.' },
         published_article: { status: 409, message: 'This article is already published. Local uploads cannot overwrite it; review it in the web app.' },

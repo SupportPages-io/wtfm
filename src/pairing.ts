@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { apiOrigin } from './api.js';
 import { fail, SupportPagesError } from './errors.js';
 import { connectionFailure } from './development-tls.js';
+import { CLI_NAME } from './brand.js';
 
 const hex = z.string().regex(/^[a-f0-9]{64}$/);
 const startSchema = z.object({ pairing_id: hex, pairing_secret: hex, verification_uri: z.string(),
@@ -109,7 +110,7 @@ export class Pairing {
           const poll = z.object({ status: z.enum(['pending', 'approved', 'denied', 'expired', 'exchanged', 'completed']) }).safeParse(await this.request('/poll'));
           if (!poll.success) fail('invalid_response', 'Invalid authorization status.');
           if (poll.data.status === 'pending') continue;
-          if (poll.data.status === 'denied') fail('authorization_denied', 'Sign-in was declined in the browser. Run supportpages login or call supportpages_init to start again.');
+          if (poll.data.status === 'denied') fail('authorization_denied', `Sign-in was declined in the browser. Run ${CLI_NAME} login or call supportpages_init to start again.`);
           if (poll.data.status === 'expired') break;
           if (poll.data.status === 'completed') fail('pairing_completed', 'This sign-in request was already completed. Start again to sign in.');
           const parsed = deliverySchema.safeParse(await this.request('/exchange'));
@@ -135,7 +136,7 @@ export class Pairing {
         throw error;
       }
     }
-    if (!this.stopped && !saved) fail('pairing_expired', 'The sign-in request expired. Run supportpages login or call supportpages_init to start again.');
+    if (!this.stopped && !saved) fail('pairing_expired', `The sign-in request expired. Run ${CLI_NAME} login or call supportpages_init to start again.`);
   }
   private async request(action: string, body?: object, method = 'POST'): Promise<unknown> {
     let response: Response;

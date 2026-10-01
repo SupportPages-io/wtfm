@@ -1,6 +1,7 @@
 import readline from 'node:readline';
 import { Writable } from 'node:stream';
 import { stripVTControlCharacters } from 'node:util';
+import { CLI_NAME, LEGACY_CLI_NAME } from './brand.mjs';
 // The standalone CLI bundles Clack. The source install.sh bootstrap can run
 // before npm dependencies exist, so keep its plain prompts and --help usable.
 let prompts;
@@ -19,7 +20,7 @@ export function emphasizeCommands(text, output = process.stdout, env = process.e
   if (!output.isTTY || env.TERM === 'dumb' || env.NO_COLOR !== undefined) return String(text);
   const argument = String.raw`(?:'[^'\n]*'|"[^"\n]*"|[^\s,;!?]+)`;
   const flag = String.raw`(?:--(?:dev|refresh|yes|json|skills-only)\b|--(?:workspace|api-url|config-dir|skills-dir|project|agent|app-type)(?:[ \t]+|=)${argument})`;
-  const command = new RegExp(String.raw`(?<![\w/.-])supportpages[ \t]+(?:setup|init|uninit|login|logout|status|sync|configure|doctor|analyse|sections|recommend|write|publish|update|remove|--help|--version)\b(?:[ \t]+${flag})*`, 'g');
+  const command = new RegExp(String.raw`(?<![\w/.-])(?:${CLI_NAME}|${LEGACY_CLI_NAME})[ \t]+(?:setup|init|uninit|login|logout|status|sync|configure|doctor|analyse|sections|recommend|write|publish|yolo|update|remove|--help|--version)\b(?:[ \t]+${flag})*`, 'g');
   return String(text).replace(command, value => {
     const suffix = value.match(/[.]+$/)?.[0] ?? '';
     return `\x1b[1;36m${suffix ? value.slice(0, -suffix.length) : value}\x1b[39;22m${suffix}`;

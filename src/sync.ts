@@ -6,6 +6,7 @@ import { parse, sha256 } from './artifacts.js';
 import { runSchema } from './runs.js';
 import { fail, publicError } from './errors.js';
 import { Walkthroughs } from './walkthroughs.js';
+import { CLI_NAME } from './brand.js';
 
 const identity = { id: remoteId, local_article_id: z.uuid().nullable(), title: z.string(), section_id: remoteId.nullable() };
 const generation = z.object({ run_id: z.uuid(), attempt: z.uuid(), state: z.enum(['running', 'failed', 'interrupted', 'cancelled', 'complete', 'kept', 'discarded']) });
@@ -80,7 +81,7 @@ export class ProjectSync {
     const binding = await this.bridge.binding();
     try { context ??= await this.bridge.context(); }
     catch (error) {
-      if (['not_found', 'permission_denied'].includes(publicError(error).code)) fail('project_unavailable', 'This help centre is unavailable to the current account. Restore access or run supportpages init to choose a project. The existing link and last sync have been kept.');
+      if (['not_found', 'permission_denied'].includes(publicError(error).code)) fail('project_unavailable', `This help centre is unavailable to the current account. Restore access or run ${CLI_NAME} init to choose a project. The existing link and last sync have been kept.`);
       throw error;
     }
     if (context.project.id !== binding.project_id) fail('destination_mismatch', 'The project changed during sync. Run sync again.');

@@ -29,17 +29,18 @@ import { Runs, runSchema, processSessionId, uploadRecovery, type Run } from './r
 import { RepositoryReminders, repositoryShowText, type RepositoryInvitation } from './repository-benefits.js';
 import { HostingReminders, hostingShowText, type HostingInvitation } from './hosting-benefits.js';
 import { activeTelemetry, secondsSince, track } from './telemetry.js';
+import { CLI_NAME } from './brand.js';
 /** What to do about an analysis that is missing or was rejected by validation. */
 export function analysisInstruction(analysis: { status: string; app_type?: unknown; error?: { message?: string } }) {
   if (analysis.status === 'ready') return undefined;
   const appType = typeof analysis.app_type === 'string' ? analysis.app_type : undefined;
   const reason = analysis.error?.message ? `${analysis.error.message} ` : '';
   if (appType) {
-    return `${reason}Project detection needs the app type it asked for. In the project terminal run supportpages analyse --app-type ${appType}, or rerun the detect-project skill with app_type=${appType}.`;
+    return `${reason}Project detection needs the app type it asked for. In the project terminal run ${CLI_NAME} analyse --app-type ${appType}, or rerun the detect-project skill with app_type=${appType}.`;
   }
   return analysis.status === 'invalid'
-    ? `${reason}Run supportpages analyse in the project terminal to rebuild the project analysis.`
-    : 'Run supportpages analyse in the project terminal before creating an article.';
+    ? `${reason}Run ${CLI_NAME} analyse in the project terminal to rebuild the project analysis.`
+    : `Run ${CLI_NAME} analyse in the project terminal before creating an article.`;
 }
 
 /** Counts a locally written article's end state: saved in the folder, or uploaded to a help centre. */
@@ -100,7 +101,7 @@ export class Bridge {
   /** Context for a local workspace: no sections, inventory or capacity; writing style composed here. */
   async localContext(): Promise<z.infer<typeof contextSchema>> {
     const local = await this.local();
-    if (!local) fail('local_required', 'This folder is not set up to save articles locally. Run supportpages init.');
+    if (!local) fail('local_required', `This folder is not set up to save articles locally. Run ${CLI_NAME} init.`);
     return { local: true, project: { name: path.basename(this.ws.root) }, supported_bundle_versions: [1], sections: [], articles: [],
       product_context: {}, inventory_truncated: false, writing_style: composeWritingStyle(local.writing_style) };
   }
@@ -109,7 +110,7 @@ export class Bridge {
   }
   async binding(): Promise<Binding> {
     if (!await this.ws.exists(`${this.stateRoot}/binding.json`) && await this.ws.exists(`${this.stateRoot}/local.json`)) {
-      fail('local_workspace', 'This folder saves articles locally and has no help centre. Run supportpages publish in the terminal to sign in and host them.');
+      fail('local_workspace', `This folder saves articles locally and has no help centre. Run ${CLI_NAME} publish in the terminal to sign in and host them.`);
     }
     const binding = parse(bindingSchema, await this.ws.json(`${this.stateRoot}/binding.json`));
     if (binding.api_origin !== this.api.origin) fail('destination_mismatch', 'This workspace is bound to a different API origin. Rebind it deliberately before continuing.');
@@ -139,7 +140,7 @@ export class Bridge {
     let telemetry: unknown = { enabled: false, reason: 'not_configured' };
     try { telemetry = await activeTelemetry()?.status() ?? telemetry; } catch { /* Doctor still reports the rest. */ }
     return { workspace: this.ws.root, api_origin: this.api.origin, dev_mode: this.api.dev, state_directory: this.stateRoot, credentials_configured: this.api.configured(), skills_path: this.skillsDir, skills_version: await this.version(), skills_installed: installed, dependencies, telemetry,
-      notes: ['Generation runs in the host agent. This server does not launch a model.', 'Article rendering also needs Chromium, which supportpages setup downloads on first use, and any project-specific CSS dependencies.'] };
+      notes: ['Generation runs in the host agent. This server does not launch a model.', `Article rendering also needs Chromium, which ${CLI_NAME} setup downloads on first use, and any project-specific CSS dependencies.`] };
   }
   listProjects() { return this.api.request('GET', '/projects'); }
   async status(runId?: string) {
@@ -580,7 +581,7 @@ export class Bridge {
   /** A run written without a help centre is finalized and exported instead of uploaded. Safe to repeat. */
   private async completeLocallyUnlocked(run: Run, deliver = true) {
     const local = await this.local();
-    if (!local) fail('local_required', 'This article was written for local saving, but the folder no longer has local settings. Run supportpages init.');
+    if (!local) fail('local_required', `This article was written for local saving, but the folder no longer has local settings. Run ${CLI_NAME} init.`);
     if (run.phase === 'saved' && run.export_path) return this.savedLocally(run, local, undefined, deliver);
     try {
       if (run.status === 'prepared') {

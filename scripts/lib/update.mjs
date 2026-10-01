@@ -2,6 +2,7 @@ import path from 'node:path';
 import { lstat, readFile, realpath } from 'node:fs/promises';
 import { fail } from '../../dist/errors.js';
 import { command } from './install.mjs';
+import { CLI_NAME } from './brand.mjs';
 
 const versionPattern = /^\d+\.\d+\.\d+$/;
 export function compareVersions(left, right) {
@@ -40,7 +41,7 @@ export async function updateCli({ installRoot, env = process.env, run = command,
   const releaseUrl = receipt.release_url.replace(/\/$/, '');
   ui.line('Checking for a SupportPages Writer update…');
   const latest = await run('curl', ['--proto', '=https', '--proto-redir', '=https', '-fsSL', '--max-time', String(checkTimeout), `${releaseUrl}/latest.txt`], { capture: true, env });
-  if (latest.code !== 0) fail('update_unavailable', 'Could not check for updates. Ensure curl is installed and your network is available, then rerun supportpages update.');
+  if (latest.code !== 0) fail('update_unavailable', `Could not check for updates. Ensure curl is installed and your network is available, then rerun ${CLI_NAME} update.`);
   const next = latest.stdout.trim();
   if (compareVersions(current, next) >= 0) {
     ui.line(`SupportPages Writer ${current} is up to date. No update needed.`);
@@ -49,6 +50,6 @@ export async function updateCli({ installRoot, env = process.env, run = command,
   ui.line(`Updating SupportPages Writer ${current} to ${next}…`);
   const result = await run('bash', [path.join(installRoot, 'install-cli.sh'), '--yes', '--update', '--version', next,
     '--data-dir', receipt.data_dir, '--bin-dir', receipt.bin_dir], { env: { ...env, SUPPORTPAGES_CLI_RELEASE_URL: releaseUrl } });
-  if (result.code !== 0) fail('update_failed', 'Update could not finish. Your previous version remains available. Resolve the installer error above and rerun supportpages update.');
+  if (result.code !== 0) fail('update_failed', `Update could not finish. Your previous version remains available. Resolve the installer error above and rerun ${CLI_NAME} update.`);
   return { status: 'updated', version: next };
 }

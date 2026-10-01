@@ -5,6 +5,7 @@ import { Workspace } from '../../dist/workspace.js';
 import { Runs } from '../../dist/runs.js';
 import { fail } from '../../dist/errors.js';
 import { Cancelled } from './terminal.mjs';
+import { CLI_NAME } from './brand.mjs';
 
 const stateRoot = '.rtfm/supportpages';
 const retained = new Set(['operation.lock', 'archives']);
@@ -23,7 +24,7 @@ export async function uninitWorkspace(root, configDir, { ui, yes = false } = {})
   const entries = async () => (await ws.list(stateRoot)).filter(entry => !retained.has(entry.name)).map(entry => entry.name).sort();
   const originalEntries = await entries();
   if (!before && !originalEntries.length) {
-    ui.ok('This folder is already uninitialized. Run supportpages init to set it up.');
+    ui.ok(`This folder is already uninitialized. Run ${CLI_NAME} init to set it up.`);
     return { status: 'uninitialized', already_uninitialized: true, workspace: ws.root };
   }
   ui.intro?.('SupportPages Writer · Forget project setup');
@@ -35,14 +36,14 @@ export async function uninitWorkspace(root, configDir, { ui, yes = false } = {})
     const current = await readProfile(profile);
     if (!((before === null && current === null) || before?.equals(current ?? Buffer.alloc(0))) ||
         JSON.stringify(await entries()) !== JSON.stringify(originalEntries)) {
-      fail('configuration_changed', 'Project setup changed during review. Rerun supportpages uninit.');
+      fail('configuration_changed', `Project setup changed during review. Rerun ${CLI_NAME} uninit.`);
     }
     await new Runs(ws, stateRoot).assertAvailable();
     const roots = [stateRoot, ...(await ws.list(`${stateRoot}/dev`)).filter(entry => entry.isDirectory()).map(entry => `${stateRoot}/dev/${entry.name}`)];
     for (const directory of roots) {
       const task = `${directory}/setup/task.json`;
       if (await ws.exists(task) && (await ws.json(task)).status === 'running') {
-        fail('workspace_busy', 'Finish or stop project analysis before running supportpages uninit.');
+        fail('workspace_busy', `Finish or stop project analysis before running ${CLI_NAME} uninit.`);
       }
     }
     const archive = `${stateRoot}/archives/uninit-${randomUUID()}`;
@@ -55,7 +56,7 @@ export async function uninitWorkspace(root, configDir, { ui, yes = false } = {})
         moved.push(entry);
       }
       if (before) {
-        if (!before.equals(await readProfile(profile) ?? Buffer.alloc(0))) fail('configuration_changed', 'The workspace environment changed. Rerun supportpages uninit.');
+        if (!before.equals(await readProfile(profile) ?? Buffer.alloc(0))) fail('configuration_changed', `The workspace environment changed. Rerun ${CLI_NAME} uninit.`);
         await unlink(profile);
       }
     } catch (error) {
@@ -64,7 +65,7 @@ export async function uninitWorkspace(root, configDir, { ui, yes = false } = {})
     }
     return { status: 'uninitialized', workspace: ws.root, archive: await ws.resolve(archive) };
   });
-  ui.ok('Project setup removed. Run supportpages init to choose where articles go.');
+  ui.ok(`Project setup removed. Run ${CLI_NAME} init to choose where articles go.`);
   ui.line(`Recovery files: ${result.archive}`);
   ui.line('Use --dev only when you want the development service. Restart existing agent sessions to refresh their connection state.');
   return result;

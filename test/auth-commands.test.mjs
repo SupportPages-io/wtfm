@@ -175,7 +175,7 @@ for (const mode of ['signin', 'signup']) test(`setup ${mode} completes browser a
   const logs = f.logs.join('\n');
   assert.ok(logs.includes(opened));
   assert.match(logs, /ABCD-EFGH/);
-  assert.match(logs, /Run supportpages init in a project/);
+  assert.match(logs, /Run wtfm init in a project/);
   if (mode === 'signup') {
     assert.match(logs, /Create a free SupportPages.io account/);
     assert.match(logs, /Open the link above/);
@@ -209,7 +209,7 @@ test('repeated setup reuses a valid credential and points to project initializat
   const result = await runCli({ ...f.options, command: 'setup' }, { ...f.deps, sessionFactory: () => f.session });
   assert.equal(result.already_signed_in, true);
   assert.match(f.logs.join('\n'), /Already signed in as alice@example.com/);
-  assert.match(f.logs.join('\n'), /Run supportpages init in a project/);
+  assert.match(f.logs.join('\n'), /Run wtfm init in a project/);
 });
 
 test('repeated login reuses a valid credential, and cancellation saves nothing', async t => {
@@ -247,7 +247,7 @@ test('help lists login/logout, login needs a terminal, and logout works unattend
   assert.match(login.stderr, /interactive terminal/);
   const accountSetup = spawnSync(process.execPath, ['scripts/cli.mjs', 'setup'], { encoding: 'utf8' });
   assert.equal(accountSetup.status, 2);
-  assert.match(accountSetup.stderr, /Run supportpages setup in an interactive terminal/);
+  assert.match(accountSetup.stderr, /Run wtfm setup in an interactive terminal/);
   const logout = spawnSync(process.execPath, ['scripts/cli.mjs', 'logout', '--workspace', f.root, '--config-dir', f.configDir, '--api-url', origin], { encoding: 'utf8' });
   assert.equal(logout.status, 0, logout.stderr);
   assert.match(logout.stdout, /already signed out/);
@@ -288,8 +288,8 @@ test('device authentication defaults to production despite a saved development w
     assert.equal(config.origin, 'http://app.lvh.me:4000');
     assert.equal(config.dev, true);
   }
-  assert.match(f.logs.join('\n'), /supportpages logout --dev --api-url 'http:\/\/app.lvh.me:4000'/);
-  assert.match(f.logs.join('\n'), /supportpages login --dev --api-url 'http:\/\/app.lvh.me:4000'/);
+  assert.match(f.logs.join('\n'), /wtfm logout --dev --api-url 'http:\/\/app.lvh.me:4000'/);
+  assert.match(f.logs.join('\n'), /wtfm login --dev --api-url 'http:\/\/app.lvh.me:4000'/);
   // A broken project profile must not prevent independent device authentication.
   await writeFile(profile, 'invalid json');
   for (const command of ['setup', 'login', 'logout']) {
@@ -313,8 +313,8 @@ test('setup can choose local articles: no pairing, no browser, a device preferen
   assert.match(logs, /A help centre gives articles a public URL/, 'the difference is stated before the choice');
   assert.match(logs, /No account needed: articles will be saved in your projects/);
   assert.match(logs, /Account: none — articles are saved in your projects/);
-  assert.match(logs, /Run supportpages init in a project to set up writing/);
-  assert.match(logs, /set up writing\.\nOptional: supportpages publish hosts saved articles on a help centre later\./);
+  assert.match(logs, /Run wtfm init in a project to set up writing/);
+  assert.match(logs, /set up writing\.\nOptional: wtfm publish hosts saved articles on a help centre later\./);
   assert.doesNotMatch(logs, /Next: /, 'the outro gives the next step once');
 });
 

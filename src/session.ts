@@ -13,6 +13,7 @@ import { fail, publicError } from './errors.js';
 import { replaceConnection } from './replace-connection.js';
 import { configureDevelopmentTLS } from './development-tls.js';
 import { openPreview } from './progress.js';
+import { CLI_NAME } from './brand.js';
 
 /** One credential per API origin: signing in covers every help centre the account can access. */
 export function credentialLocation(origin: string, configDir: string) {
@@ -310,7 +311,7 @@ export class Session {
     const token = await readTokenFile(filename, o.origin);
     try {
       const response = await new ApiClient(o.origin, token, fetch, o.dev).request('DELETE', '/mcp/session');
-      if ((response as { status?: string } | null)?.status !== 'logged_out') fail('invalid_response', 'SupportPages.io did not confirm logout. Retry supportpages logout.');
+      if ((response as { status?: string } | null)?.status !== 'logged_out') fail('invalid_response', `SupportPages.io did not confirm logout. Retry ${CLI_NAME} logout.`);
     } catch (error) {
       // An expired/revoked credential is already unusable; retry after a lost
       // successful response also lands here. Keep credentials on network errors
@@ -319,7 +320,7 @@ export class Session {
     }
     // Do not remove a replacement credential saved while revocation was pending.
     try {
-      if (await readTokenFile(filename, o.origin) !== token) fail('connection_changed', 'This device signed in again during logout. Its new credential was kept. Run supportpages logout again to revoke it.');
+      if (await readTokenFile(filename, o.origin) !== token) fail('connection_changed', `This device signed in again during logout. Its new credential was kept. Run ${CLI_NAME} logout again to revoke it.`);
     } catch (error) {
       try { await lstat(filename); }
       catch (missing) { if ((missing as NodeJS.ErrnoException).code === 'ENOENT') return result; }
@@ -480,6 +481,6 @@ export class Session {
     const synchronization = await bridge.sync();
     return { status: 'ready', workspace: bridge.ws.root, api_origin: o.origin, account: await this.account(), project_id: bound.project_id,
       analysis, synchronization, generation_ready: analysis.status === 'ready',
-      ...(analysis.status !== 'ready' ? { instructions: 'The connection is ready. Run supportpages analyse in this project’s terminal before creating an article.' } : {}) };
+      ...(analysis.status !== 'ready' ? { instructions: `The connection is ready. Run ${CLI_NAME} analyse in this project’s terminal before creating an article.` } : {}) };
   }
 }

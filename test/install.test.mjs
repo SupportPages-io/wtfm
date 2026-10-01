@@ -228,7 +228,7 @@ test('global installer never requests credentials or binds the install directory
   const second = await runInstaller({ ...f.options, workspace: f.root, yes: true }, f.deps);
   assert.equal(second.name, result.name);
   assert.ok(!f.calls.some(c => c.cmd === 'connect'));
-  assert.match(f.logs.join('\n'), /supportpages init inside each project folder/);
+  assert.match(f.logs.join('\n'), /wtfm init inside each project folder/);
 });
 
 test('interactive installation never opens browser sign-in and points to init', async t => {
@@ -239,8 +239,8 @@ test('interactive installation never opens browser sign-in and points to init', 
   await runInstaller(options, f.deps);
   assert.ok(!f.calls.some(c => c.cmd === 'connect'));
   assert.ok(!questions.some(question => /workspace|browser/i.test(question)));
-  assert.match(f.logs.join('\n'), /Run supportpages setup once on this computer/);
-  assert.match(f.logs.join('\n'), /then supportpages init inside each project folder/);
+  assert.match(f.logs.join('\n'), /Run wtfm setup once on this computer/);
+  assert.match(f.logs.join('\n'), /then wtfm init inside each project folder/);
   await assert.rejects(stat(path.join(f.config, 'credentials')), { code: 'ENOENT' });
   const receipt = JSON.parse(await readFile(path.join(f.config,'installations/supportpages.json'),'utf8'));
   assert.deepEqual(receipt.clients,['codex','claude']);

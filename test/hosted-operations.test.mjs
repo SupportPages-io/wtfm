@@ -90,3 +90,11 @@ test('an operation with nowhere to watch still tells the agent to stop',async t=
  assert.match(result.instructions,/finish your turn/);
  assert.match(result.instructions,/Do not poll/);
 });
+
+test('every API request names the optional actions this Writer understands',async t=>{
+ const seen=[];
+ const f=await fixture(t,async(url,init)=>{seen.push(init.headers);if(url.endsWith('/context'))return Response.json(metadata);return Response.json(operation);});
+ await f.bridge.bind('1');
+ assert.ok(seen.length>0);
+ for(const headers of seen)assert.equal(headers['X-SupportPages-Writer-Features'],'generate_help_centre');
+});

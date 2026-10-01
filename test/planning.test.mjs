@@ -103,7 +103,7 @@ test('finishing after detection points to the coding agent instead of opening on
   assert.equal(f.launches.length, 0);
   assert.equal(f.tasks.length, 0);
   assert.match(f.lines.join(' '), /Open Codex in this project and ask for an article/);
-  assert.doesNotMatch(f.lines.join(' '), /supportpages write/);
+  assert.doesNotMatch(f.lines.join(' '), /(?:wtfm|supportpages) write/);
 });
 
 test('ready analysis can be reused with an unfinished writer without changing its record', async t => {
@@ -285,7 +285,7 @@ test('declining analysis saves the connection and keeps writing blocked without 
   assert.equal((await f.bridge.setup.analysis()).status, 'required');
   assert.equal(await f.ws.exists('.rtfm/supportpages/setup/task.json'), false);
   assert.equal(await f.ws.exists('.rtfm/supportpages/operation.lock'), false);
-  assert.match(f.lines.join('\n'), /Analysis deferred. Your project settings are saved.\nRun supportpages analyse when you are ready/);
+  assert.match(f.lines.join('\n'), /Analysis deferred. Your project settings are saved.\nRun wtfm analyse when you are ready/);
   await assert.rejects(f.flow.write(), { code: 'analysis_required' });
 });
 

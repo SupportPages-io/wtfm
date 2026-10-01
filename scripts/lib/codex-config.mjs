@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import readline from 'node:readline';
+import { CLI_NAME } from './brand.mjs';
 
 /** Use Codex's TOML editor so comments, inline tables and concurrent edits survive. */
 export async function withCodexConfig({ env, cwd }, action) {
@@ -9,7 +10,7 @@ export async function withCodexConfig({ env, cwd }, action) {
   const child = spawn('codex', ['app-server', '--stdio'], { cwd, env: childEnv, stdio: ['pipe', 'pipe', 'ignore'] });
   let id = 0, closed = false;
   const pending = new Map();
-  const failure = () => Error('Codex configuration could not be updated. Update Codex and rerun supportpages init.');
+  const failure = () => Error(`Codex configuration could not be updated. Update Codex and rerun ${CLI_NAME} init.`);
   const stop = () => {
     closed = true;
     for (const item of pending.values()) { clearTimeout(item.timer); item.reject(failure()); }

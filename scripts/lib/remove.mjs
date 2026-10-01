@@ -6,6 +6,7 @@ import { retirePublicSkillLinks } from './article-skills.mjs';
 import { Cancelled } from './terminal.mjs';
 import { fail } from '../../dist/errors.js';
 import { claudePermissionRules } from './claude-permissions.mjs';
+import { CLI_NAME } from './brand.mjs';
 
 const clean = value => String(value).replace(/[\p{Cc}\p{Cf}]/gu, '');
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -150,12 +151,12 @@ export async function removeIntegration(options, { home = os.homedir(), env = pr
   for (const [filename, before] of snapshots) {
     let current;
     try { current = await readFile(filename, 'utf8'); } catch (error) { if (error.code !== 'ENOENT') throw error; current = null; }
-    if (current !== before) fail('configuration_changed', 'Configuration changed during review. Rerun supportpages remove to review it again.');
+    if (current !== before) fail('configuration_changed', `Configuration changed during review. Rerun ${CLI_NAME} remove to review it again.`);
   }
   for (const item of commands) {
     await backup(item.filename, path.join(configDir, 'backups'));
     const result = await run('codex', ['mcp', 'remove', item.name], { capture: true, env: { ...env, CODEX_HOME: codexDir } });
-    if (result.code !== 0) fail('remove_failed', `Codex could not remove ${item.name}. Its installation receipt was kept; rerun supportpages remove to finish.`);
+    if (result.code !== 0) fail('remove_failed', `Codex could not remove ${item.name}. Its installation receipt was kept; rerun ${CLI_NAME} remove to finish.`);
   }
   for (const [filename, value] of edits) { await backup(filename, path.join(configDir, 'backups')); await privateJson(filename, value); }
   for (const args of skillOptions) await retirePublicSkillLinks(args);
