@@ -4,8 +4,8 @@
   "description": "Your coding agent writes illustrated help articles from your codebase, with screenshots rendered from the real interface code.",
   "version": "0.0.0",
   "author": { "name": "SupportPages", "url": "https://supportpages.io" },
-  "homepage": "https://github.com/SupportPages-io/supportpages-writer#readme",
-  "repository": "https://github.com/SupportPages-io/supportpages-writer",
+  "homepage": "https://github.com/SupportPages-io/wtfm#readme",
+  "repository": "https://github.com/SupportPages-io/wtfm",
   "license": "Apache-2.0",
   "keywords": ["documentation", "help center", "screenshots", "mcp"]
 }

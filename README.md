@@ -1,7 +1,8 @@
-<h1 align="center">SupportPages Writer</h1>
+<h1 align="center">WTFM</h1>
 
 <p align="center">
-  <strong>Your coding agent writes the help docs, screenshots included.</strong>
+  <strong>Write the F***ing Manual.</strong><br>
+  Your coding agent writes the user docs. Screenshots included.
 </p>
 
 <p align="center">
@@ -13,32 +14,42 @@
 <p align="center">
   <a href="#install">Install</a> ·
   <a href="#quick-start">Quick start</a> ·
-  <a href="#cli-commands">CLI commands</a> ·
-  <a href="#supportpagesio-integration">SupportPages.io</a> ·
-  <a href="#faq">FAQ</a>
+  <a href="#examples">Examples</a> ·
+  <a href="#cli-commands">CLI</a> ·
+  <a href="#publish">Publish</a> ·
+  <a href="#faq">FAQ</a> ·
+  <a href="https://supportpages.io/wtfm">Website</a>
 </p>
 
-<!-- TODO: demo GIF of a coding agent writing an article -->
+<p align="center">
+  <img src="docs/images/demo.gif" width="880" alt="Claude Code writing an illustrated guide to adding a site in Plausible Analytics: the prompt, the writer's progress, and the finished article with screenshots">
+  <br>
+  <sub>Real output from <a href="https://github.com/plausible/analytics">plausible/analytics</a>, replayed fast. A real run takes a few minutes.</sub>
+</p>
 
-![Supportpages](https://app.supportpages.io/rails/active_storage/blobs/proxy/eyJfcmFpbHMiOnsiZGF0YSI6MTE5OTUsInB1ciI6ImJsb2JfaWQifX0=--815e8653b13e2391153f2c04a3b45ea63ca2dec6/block_start-new-shell.png)
+Not API reference, not a README. **Docs for the people who will never read your code:**
+the customer who can't find the export button, the admin inviting their team.
 
+WTFM turns [Claude Code](https://claude.com/claude-code) or
+[Codex](https://github.com/openai/codex) into a technical writer for your users. Ask
+for a guide and your agent reads your source, writes the steps in plain language, and
+shows every screen with a screenshot rendered from your real templates and CSS.
+No running app, no manual captures, no account.
 
-SupportPages Writer turns [Claude Code](https://claude.com/claude-code) or
-[Codex](https://github.com/openai/codex) into a technical writer for your product.
-Ask for a guide ("how do I invite a teammate?") and your agent reads the code,
-writes a step-by-step article, and renders screenshots from your real interface
-code. No running app, no manual captures, no account.
+> WTFM was formerly SupportPages Writer. The `supportpages` command still works as
+> an alias for `wtfm`, and existing installations, settings and `SUPPORTPAGES_*`
+> environment variables are unchanged.
 
 Set it up once in your terminal, then just ask your agent:
 
 ```sh
-curl -fsSL https://downloads.supportpages.io/install.sh | bash
+curl -fsSL https://wtfm.sh/install | bash
 ```
 ```sh
-supportpages setup          # once per computer
+wtfm setup          # once per computer
 ```
 ```sh
-supportpages init           # once per project
+wtfm init           # once per project
 ```
 
 > **You → Claude Code:** Write an illustrated guide to inviting a teammate.
@@ -57,15 +68,25 @@ supportpages init           # once per project
   and model settings.
 - **Local-first.** Nothing is sent to SupportPages.io unless you choose to publish.
 
+## Examples
+
+The same loop on other open-source codebases. Each image is one screenshot from a
+guide WTFM wrote from that repository's source; the apps were never run.
+
+| [immich-app/immich](https://github.com/immich-app/immich) · SvelteKit | [paperless-ngx/paperless-ngx](https://github.com/paperless-ngx/paperless-ngx) · Angular | [maybe-finance/maybe](https://github.com/maybe-finance/maybe) · Rails |
+| --- | --- | --- |
+| <img src="docs/images/immich.png" alt="Immich albums page, from How to create a new album"> | <img src="docs/images/paperless.png" alt="Paperless-ngx Create new tag dialog, from How to create a tag and apply it to a document"> | <img src="docs/images/maybe.png" alt="Maybe Enter account balance dialog, from How to add a new account"> |
+| How to create a new album | How to create a tag and apply it to a document | How to add a new account |
+
 ## Install
 
 ```sh
-curl -fsSL https://downloads.supportpages.io/install.sh | bash
+curl -fsSL https://wtfm.sh/install | bash
 ```
 
 The installer downloads a checksum-verified release with its own Node.js, installs
-the `supportpages` command into `~/.local/bin` (no `sudo`), and offers to add it to
-your `PATH`.
+the `wtfm` command into `~/.local/bin` (no `sudo`), and offers to add it to your
+`PATH`. It also installs `supportpages` as an alias for `wtfm`.
 
 **You'll need:**
 
@@ -74,10 +95,10 @@ your `PATH`.
   installed and signed in
 - Git
 
-Chromium for screenshots is downloaded the first time you run `supportpages setup`.
+Chromium for screenshots is downloaded the first time you run `wtfm setup`.
 
 **Updating:** releases check for updates once a day and install them in the background.
-Run `supportpages update` to update now, or set `SUPPORTPAGES_AUTO_UPDATE=0` to turn
+Run `wtfm update` to update now, or set `SUPPORTPAGES_AUTO_UPDATE=0` to turn
 automatic updates off.
 
 ### Build from source
@@ -85,13 +106,13 @@ automatic updates off.
 You'll need Node.js 22.12 or later, npm and Git.
 
 ```sh
-git clone https://github.com/SupportPages-io/supportpages-writer.git
-cd supportpages-writer
+git clone https://github.com/SupportPages-io/wtfm.git
+cd wtfm
 ./install-cli.sh
 ```
 
-This builds your checkout and installs it as `supportpages`. Run `./install-cli.sh`
-again after pulling changes.
+This builds your checkout and installs it as `wtfm` (with the `supportpages` alias).
+Run `./install-cli.sh` again after pulling changes.
 
 ## Quick start
 
@@ -100,7 +121,7 @@ Configure once in the terminal, then do everything else in your coding agent.
 ### 1. Set up your computer
 
 ```sh
-supportpages setup
+wtfm setup
 ```
 
 This connects Claude Code and/or Codex, adds the SupportPages writer to them and
@@ -111,10 +132,10 @@ downloads the screenshot renderer. When it asks how you want to work, choose
 
 ```sh
 cd path/to/your-product
-supportpages init
+wtfm init
 ```
 
-Pick where articles should be saved and which model to use. SupportPages Writer then
+Pick where articles should be saved and which model to use. WTFM then
 studies the project's structure, styles and branding once, so every article starts
 from that analysis.
 
@@ -148,25 +169,25 @@ your coding agent.
 
 | Command | What it does |
 | --- | --- |
-| `supportpages setup` | Set up this computer: connect your coding agents and install the renderer |
-| `supportpages init` | Set up this project: where articles go, which model, project analysis |
-| `supportpages configure` | Change this project's agent, model, writing style or article folder |
-| `supportpages analyse` | Re-run project analysis after big changes (`--refresh`) |
-| `supportpages status` | Show this project's setup and article progress |
-| `supportpages doctor` | Check that everything is installed and connected |
-| `supportpages telemetry off` | Stop anonymous usage counts and crash reports (`on`, `status`) |
-| `supportpages update` | Install the latest release |
-| `supportpages uninit` | Forget this project's setup (keeps a recovery archive) |
-| `supportpages remove` | Disconnect from your coding agents (keeps projects and articles) |
+| `wtfm setup` | Set up this computer: connect your coding agents and install the renderer |
+| `wtfm init` | Set up this project: where articles go, which model, project analysis |
+| `wtfm configure` | Change this project's agent, model, writing style or article folder |
+| `wtfm analyse` | Re-run project analysis after big changes (`--refresh`) |
+| `wtfm status` | Show this project's setup and article progress |
+| `wtfm doctor` | Check that everything is installed and connected |
+| `wtfm telemetry off` | Stop anonymous usage counts and crash reports (`on`, `status`) |
+| `wtfm update` | Install the latest release |
+| `wtfm uninit` | Forget this project's setup (keeps a recovery archive) |
+| `wtfm remove` | Disconnect from your coding agents (keeps projects and articles) |
 
-Run `supportpages --help` for every option. `status` and `doctor` accept `--json`.
+Run `wtfm --help` for every option. `status` and `doctor` accept `--json`.
 
 ## Your articles
 
 - **Where they go.** `output/articles/<slug>/` by default. To keep them in your repo,
-  choose a folder like `docs/help` during `init` or with `supportpages configure`.
+  choose a folder like `docs/help` during `init` or with `wtfm configure`.
 - **Writing style.** Pick from friendly, minimal, technical or formal with
-  `supportpages configure`.
+  `wtfm configure`.
 - **Screenshots.** Each article gets up to three. The main path gets them first;
   optional branches are described in text. Every screenshot carries a small
   "created automatically by supportpages.io" strip.
@@ -182,29 +203,40 @@ Run `supportpages --help` for every option. `status` and `doctor` accept `--json
 4. The mockups are rendered to PNG with a local Chromium, checked against your source,
    and saved with the article.
 
-## SupportPages.io integration
+## Publish
 
-Everything above works on its own. If you'd like your articles online, connect a free
-[SupportPages.io](https://supportpages.io) account to get:
+**Give your users somewhere to read it.** A Markdown folder in your repo helps nobody
+who can't find it. [SupportPages.io](https://supportpages.io/?utm_source=wtfm&utm_medium=readme),
+made by the same team, turns the guides WTFM writes into a help centre your users can
+search and ask: on your own domain, in your branding, and kept current as the product
+changes.
 
-- a public help centre with your branding and your own domain
-- an editor to review and polish drafts before anyone sees them
-- publishing straight from your coding agent
-- AI answers for your readers, drawn from your articles
-- extras such as topic suggestions, updates when you merge a pull request, and video
-  walkthroughs
+<p align="center">
+  <img src="docs/images/help-centre.png" width="720" alt="help.supportpages.io, a help centre hosted on SupportPages.io: AI search, suggested questions and article categories">
+</p>
+
+- **Kept current on every merge.** When a pull request merges, SupportPages.io reads
+  the diff and drafts the article updates for you to review.
+- **Video walkthroughs.** Each guide can come with a narrated video that clicks through
+  the same steps, with captions.
+- **Answers, not just search.** Readers ask in their own words and get an answer drawn
+  from your articles, with the sources linked.
+- Your branding on your own domain, an editor to review drafts before anyone sees them,
+  and publishing straight from your coding agent.
+
+Everything above works without it, and a free account hosts up to 10 articles.
 
 The same pattern applies: connect once in the terminal, then work in your agent.
 
 **Connect a project:**
 
 ```sh
-supportpages publish
+wtfm publish
 ```
 
 You'll sign in or create an account in your browser and choose a help centre. Any
 articles you've already saved upload as drafts. (Setting up a new project? Choose
-**Publish them to a SupportPages.io help centre** during `supportpages init` instead.)
+**Publish them to a SupportPages.io help centre** during `wtfm init` instead.)
 
 **Then keep asking your agent:**
 
@@ -217,11 +249,33 @@ editor. Publishing is always a separate step: click **Publish** in the editor, o
 
 | Command | What it does |
 | --- | --- |
-| `supportpages publish` | Sign in, pick a help centre and upload this project's saved articles |
-| `supportpages login` / `logout` | Sign this computer in or out |
-| `supportpages sync` | Refresh help-centre settings and article history |
+| `wtfm publish` | Sign in, pick a help centre and upload this project's saved articles |
+| `wtfm yolo` | Write the whole manual on SupportPages.io (account required; drafts only) |
+| `wtfm login` / `logout` | Sign this computer in or out |
+| `wtfm sync` | Refresh help-centre settings and article history |
 
-A help centre never needs access to your GitHub or Bitbucket.
+A help centre never needs access to your GitHub or Bitbucket. Only `wtfm yolo` does.
+
+### `wtfm yolo`: write the whole manual
+
+Starting from nothing? `wtfm yolo` plans every guide your product needs and
+writes them all at once, on SupportPages.io's servers instead of your computer and your
+coding agent's usage.
+
+```sh
+wtfm yolo
+```
+
+It walks you through whatever is missing: browser sign-in, choosing or creating a help
+centre, and connecting your repository (SupportPages.io needs read access to write from
+your code). It then shows your plan's article allowance and asks before starting
+(`--yes` skips the question). The free plan covers your first 10 guides.
+
+Progress shows live: sections, recommended articles, then drafts as they are written.
+Everything lands as drafts; nothing goes live until you publish it in the editor, whose
+link is printed at the end. Ctrl+C only stops watching: the run keeps going, and
+`wtfm status` picks it up again. If a run fails, run `wtfm yolo` again to resume it
+without losing the drafts already written.
 
 ## Privacy
 
@@ -230,6 +284,8 @@ A help centre never needs access to your GitHub or Bitbucket.
   source, as they do for any other task.
 - **Publishing uploads** the article, its images and a small provenance record.
   Your source code is never uploaded.
+- **`wtfm yolo` writes on SupportPages.io** from the repository you connect there;
+  it is the only command that gives SupportPages.io access to your code.
 - **Credentials** are stored in private files under `~/.config/supportpages`, never in
   your repository.
 - **Project analysis runs unattended.** `init` and `analyse` start your agent with its
@@ -239,22 +295,22 @@ A help centre never needs access to your GitHub or Bitbucket.
 
 ### Anonymous usage counts and crash reports
 
-The Writer tells us how many installs are in use and when something breaks, so we
+WTFM tells us how many installs are in use and when something breaks, so we
 can fix it. It says so the first time you set up a project, and it's easy to turn
 off. It is sent to SupportPages.io without your sign-in, so it can't be linked to
 your account.
 
 **What is sent**
 
-- A random install ID created on this computer (not derived from it), the Writer
+- A random install ID created on this computer (not derived from it), the WTFM
   version, the coding client's name (e.g. `claude-code`), your OS, CPU architecture
   and Node.js major version.
-- A count when the Writer is first used, when a project is set up (local or hosted),
+- A count when WTFM is first used, when a project is set up (local or hosted),
   and when an article or video walkthrough finishes: its outcome, where it went
   (local, uploaded or generated on SupportPages.io), an error code if it failed,
-  and how many seconds it took.
+  and how many seconds it took; likewise when a `wtfm yolo` run starts and ends.
 - For unexpected errors only: the error type and code, and stack frames with every
-  path outside the Writer replaced by `<external>`. Messages from other code are
+  path outside WTFM replaced by `<external>`. Messages from other code are
   never sent.
 
 **What is never sent:** your code, file names or paths, article titles or content,
@@ -264,25 +320,40 @@ is not stored.
 **Turn it off** with any of these:
 
 - ask your coding agent to turn off SupportPages telemetry;
-- run `supportpages telemetry off`;
+- run `wtfm telemetry off`;
 - set `SUPPORTPAGES_TELEMETRY=0` or `DO_NOT_TRACK=1`.
 
-It is always off in CI. `supportpages doctor` shows whether it's on and why; set
+It is always off in CI. `wtfm doctor` shows whether it's on and why; set
 `SUPPORTPAGES_TELEMETRY_DEBUG=1` to print each report to stderr as it is sent.
 
 ## FAQ
 
-**`supportpages: command not found`**
+**Is this for API docs or READMEs?**
+No. WTFM writes end-user documentation: how-to and troubleshooting guides for the
+people who use your product, with screenshots. Your agent already handles developer
+docs well.
+
+**Why not just ask Claude Code to write the docs?**
+It will write you decent steps. It won't show the screen, and it guesses at labels it
+hasn't looked up. WTFM adds a project analysis, a renderer that builds screenshots from
+your own UI code, and checks that run before anything is saved.
+
+**What does it cost?**
+WTFM is free and Apache 2.0. Articles run on your own Claude Code or Codex subscription.
+`wtfm yolo` is the exception: it runs on SupportPages.io and needs an account; the free
+plan covers 10 guides.
+
+**`wtfm: command not found`**
 Open a new terminal, or run the `PATH` command the installer printed.
 
 **My agent can't see the SupportPages tools.**
-Restart any Claude Code or Codex sessions that were open during `supportpages setup`.
+Restart any Claude Code or Codex sessions that were open during `wtfm setup`.
 
 **Setup won't finish.**
-Run `supportpages doctor`, fix what it reports, then run `supportpages init` again.
+Run `wtfm doctor`, fix what it reports, then run `wtfm init` again.
 
 **An article was interrupted halfway.**
-Ask your agent to continue it, or run `supportpages status` to see where it stopped.
+Ask your agent to continue it, or run `wtfm status` to see where it stopped.
 
 **Does it collect usage data?**
 Only anonymous counts and crash reports, never your code or articles. See
@@ -292,12 +363,12 @@ to see exactly what is sent or turn it off.
 **Can I use it on Windows?**
 Yes, inside WSL.
 
-Full documentation is on [supportpages.io](https://supportpages.io).
+More on [supportpages.io/wtfm](https://supportpages.io/wtfm).
 
 ## Contributing
 
 Bug reports and pull requests are welcome. When reporting a bug, include your OS,
-`supportpages --version`, the command you ran and its output, with credentials and
+`wtfm --version`, the command you ran and its output, with credentials and
 private code removed. For larger changes, open an issue first so we can agree on the
 approach.
 
