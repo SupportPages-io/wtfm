@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Workspace } from './workspace.js';
 import { fail, publicError } from './errors.js';
 import { articleType, remoteId } from './schema.js';
+import { CLI_NAME } from './brand.js';
 
 const text = z.string().trim().min(1).max(500);
 export const sectionProposal = z.object({ name: text, slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120),
@@ -100,8 +101,8 @@ export class LocalSetup {
       const appType = (analysis as { app_type?: string }).app_type;
       fail('analysis_required', analysis.status === 'invalid' && 'error' in analysis && analysis.error?.message
         ? `Project analysis is not usable: ${analysis.error.message}`
-        : 'Analyse this workspace first: run supportpages analyse in its terminal.',
-      appType ? { app_type: appType, rerun: `supportpages analyse --app-type ${appType}` } : undefined);
+        : `Analyse this workspace first: run ${CLI_NAME} analyse in its terminal.`,
+      appType ? { app_type: appType, rerun: `${CLI_NAME} analyse --app-type ${appType}` } : undefined);
     }
     return analysis;
   }

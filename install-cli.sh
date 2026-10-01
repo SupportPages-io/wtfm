@@ -5,7 +5,9 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Install SupportPages Writer.
+Install WTFM (formerly SupportPages Writer).
+
+  curl -fsSL https://wtfm.sh/install | bash
 
 Usage: bash install-cli.sh [--yes] [--version VERSION] [--data-dir PATH] [--bin-dir PATH]
        bash install-cli.sh --archive /path/supportpages-VERSION-PLATFORM.tar.gz
@@ -14,8 +16,9 @@ From a source checkout, builds and installs locally using Node.js 22.12+ and npm
 Otherwise downloads a standalone release with Node.js and npm included.
 --version or SUPPORTPAGES_CLI_RELEASE_URL selects a published release instead.
 
-After installation, run supportpages init in your project. No account is needed to save
-articles locally; supportpages publish hosts them on a help centre when you are ready.
+After installation, run wtfm init in your project. No account is needed to save
+articles locally; wtfm publish hosts them on a help centre when you are ready.
+The supportpages command keeps working as an alias for wtfm.
 EOF
 }
 sp_release_url="${SUPPORTPAGES_CLI_RELEASE_URL:-https://downloads.supportpages.io}"
@@ -59,7 +62,8 @@ sp_tmp="$(mktemp -d "${TMPDIR:-/tmp}/supportpages-install.XXXXXX")"
 sp_stage=""
 sp_launcher_tmp=""
 sp_lock=""
-cleanup() { rm -rf -- "$sp_tmp"; if [ -n "$sp_launcher_tmp" ]; then rm -f -- "$sp_launcher_tmp"; fi; if [ -n "$sp_lock" ]; then rmdir "$sp_lock" 2>/dev/null || true; fi; if [ -n "$sp_stage" ]; then rm -rf -- "$sp_stage"; fi; }
+sp_wtfm_tmp=""
+cleanup() { rm -rf -- "$sp_tmp"; if [ -n "$sp_launcher_tmp" ]; then rm -f -- "$sp_launcher_tmp"; fi; if [ -n "$sp_wtfm_tmp" ]; then rm -f -- "$sp_wtfm_tmp"; fi; if [ -n "$sp_lock" ]; then rmdir "$sp_lock" 2>/dev/null || true; fi; if [ -n "$sp_stage" ]; then rm -rf -- "$sp_stage"; fi; }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 
@@ -134,10 +138,22 @@ mkdir -p -- "$sp_data_dir" "$sp_bin_dir"
 sp_data_dir="$(cd -- "$sp_data_dir" && pwd -P)"
 chmod 700 "$sp_data_dir"
 sp_bin_dir="$(cd -- "$sp_bin_dir" && pwd -P)"
+# wtfm is the command; supportpages stays as an alias for existing installs.
+# Both are identical managed launchers, recognised by the header on line 2.
+sp_managed() { [ ! -L "$1" ] && [ -f "$1" ] && LC_ALL=C awk 'NR==2 && $0=="# SupportPages managed launcher" {ok=1} END {exit !ok}' "$1"; }
 sp_launcher="$sp_bin_dir/supportpages"
-if [ -e "$sp_launcher" ] || [ -L "$sp_launcher" ]; then
-  if [ -L "$sp_launcher" ] || [ ! -f "$sp_launcher" ] || ! LC_ALL=C awk 'NR==2 && $0=="# SupportPages managed launcher" {ok=1} END {exit !ok}' "$sp_launcher"; then
-    echo 'An unrelated supportpages command already exists. Choose another --bin-dir.' >&2; exit 1
+sp_wtfm="$sp_bin_dir/wtfm"
+if { [ -e "$sp_launcher" ] || [ -L "$sp_launcher" ]; } && ! sp_managed "$sp_launcher"; then
+  echo 'An unrelated supportpages command already exists. Choose another --bin-dir.' >&2; exit 1
+fi
+sp_wtfm_enabled=true
+if { [ -e "$sp_wtfm" ] || [ -L "$sp_wtfm" ]; } && ! sp_managed "$sp_wtfm"; then
+  # Never fail an update over another tool's wtfm: supportpages keeps working.
+  if [ "$sp_update" = true ]; then
+    sp_wtfm_enabled=false
+    echo 'An unrelated wtfm command already exists; keeping it. Use the supportpages command instead.' >&2
+  else
+    echo 'An unrelated wtfm command already exists. Choose another --bin-dir.' >&2; exit 1
   fi
 fi
 printf '%s\n' 'SupportPages CLI installation v1' > "$sp_data_dir/.supportpages-install"
@@ -195,6 +211,12 @@ chmod 755 "$sp_stage/launcher"
 sp_launcher_tmp="$(mktemp "$sp_bin_dir/.supportpages.XXXXXX")"
 cp "$sp_stage/launcher" "$sp_launcher_tmp"
 chmod 755 "$sp_launcher_tmp"
+sp_wtfm_tmp=""
+if [ "$sp_wtfm_enabled" = true ]; then
+  sp_wtfm_tmp="$(mktemp "$sp_bin_dir/.wtfm.XXXXXX")"
+  cp "$sp_stage/launcher" "$sp_wtfm_tmp"
+  chmod 755 "$sp_wtfm_tmp"
+fi
 ln -s "versions/$sp_target_name" "$sp_stage/current"
 # Prepare the receipt before replacing anything in the active installation.
 "$sp_target/runtime/bin/node" -e '
@@ -205,6 +227,8 @@ ln -s "versions/$sp_target_name" "$sp_stage/current"
 # The launcher always uses current; replacing it first keeps the old version usable
 # if promotion fails. Node rename replaces the pointer on both macOS and Linux.
 mv -f -- "$sp_launcher_tmp" "$sp_launcher"
+sp_launcher_tmp=""
+if [ -n "$sp_wtfm_tmp" ]; then mv -f -- "$sp_wtfm_tmp" "$sp_wtfm"; sp_wtfm_tmp=""; fi
 mv -f -- "$sp_stage/install.json" "$sp_data_dir/install.json"
 "$sp_target/runtime/bin/node" -e 'require("fs").renameSync(process.argv[1],process.argv[2])' "$sp_stage/current" "$sp_data_dir/current"
 # PATH advice is kept for the finish screen, which clears the terminal first.
@@ -220,7 +244,7 @@ case ":${PATH:-}:" in
     if [ -n "$sp_profile" ] && [ -f "$sp_profile" ] && SP_PATH_LINE="$sp_path_line" awk '$0 == ENVIRON["SP_PATH_LINE"] {found=1} END {exit !found}' "$sp_profile"; then
       sp_path_saved=true
     elif [ "$sp_yes" = false ] && [ -n "$sp_profile" ] && { exec 3<>/dev/tty; } 2>/dev/null; then
-      printf 'Add supportpages to your shell PATH? [Y/n]: ' >&3
+      printf 'Add wtfm to your shell PATH? [Y/n]: ' >&3
       IFS= read -r sp_answer <&3 || sp_answer=n
       case "$sp_answer" in ''|y|Y|yes|YES)
         if [ -L "$sp_profile" ]; then echo 'Shell config is a symlink; add the PATH line below manually.'
@@ -243,34 +267,43 @@ fi
 # A fresh install ends on a clean screen: the logo, then how to get started.
 # Piped or plain output (and NO_COLOR) gets the same text without clearing or colour.
 sp_screen=false
-sp_bold=""; sp_cmd=""; sp_dim=""; sp_reset=""
+sp_bold=""; sp_cmd=""; sp_dim=""; sp_green=""; sp_reset=""
 if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ]; then
   sp_screen=true
-  if [ -z "${NO_COLOR+x}" ]; then sp_bold=$'\033[1m'; sp_cmd=$'\033[1;36m'; sp_dim=$'\033[90m'; sp_reset=$'\033[0m'; fi
+  if [ -z "${NO_COLOR+x}" ]; then sp_bold=$'\033[1m'; sp_cmd=$'\033[1;36m'; sp_dim=$'\033[90m'; sp_green=$'\033[32m'; sp_reset=$'\033[0m'; fi
 fi
 if [ "$sp_screen" = true ]; then
   printf '\033[H\033[2J'
-  if [ "$(tput cols 2>/dev/null || echo 80)" -gt 59 ]; then
-    # figlet "Pagga" (see scripts/lib/terminal.mjs); the ░ texture and ".io" are dimmed.
+  if [ "$(tput cols 2>/dev/null || echo 80)" -gt 54 ]; then
+    # "Write the F***ing Manual" in figlet "Pagga" (see scripts/lib/terminal.mjs).
+    # Rows are "green part|rest": F***ing is green, the ░ texture is dimmed.
     for sp_row in \
-      '░█▀▀░█░█░█▀█░█▀█░█▀█░█▀▄░▀█▀░█▀█░█▀█░█▀▀░█▀▀░█▀▀|░░░░▀█▀░█▀█' \
-      '░▀▀█░█░█░█▀▀░█▀▀░█░█░█▀▄░░█░░█▀▀░█▀█░█░█░█▀▀░▀▀█|░░░░░█░░█░█' \
-      '░▀▀▀░▀▀▀░▀░░░▀░░░▀▀▀░▀░▀░░▀░░▀░░░▀░▀░▀▀▀░▀▀▀░▀▀▀|░▀░░▀▀▀░▀▀▀'; do
-      sp_mark="${sp_row%%|*}"
-      printf '%s%s%s%s\n' "${sp_mark//░/${sp_dim}░${sp_reset}}" "$sp_dim" "${sp_row#*|}" "$sp_reset"
+      '|░█░█░█▀▄░▀█▀░▀█▀░█▀▀░░░▀█▀░█░█░█▀▀░░░░░░░░░░░░░░░░░░░░' \
+      '|░█▄█░█▀▄░░█░░░█░░█▀▀░░░░█░░█▀█░█▀▀░░░░░░░░░░░░░░░░░░░░' \
+      '|░▀░▀░▀░▀░▀▀▀░░▀░░▀▀▀░░░░▀░░▀░▀░▀▀▀░░░░░░░░░░░░░░░░░░░░' \
+      '|░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░' \
+      '░█▀▀░▄░▄░▄░▄░▄░▄░▀█▀░█▀█░█▀▀|░░░█▄█░█▀█░█▀█░█░█░█▀█░█░░' \
+      '░█▀▀░▄█▄░▄█▄░▄█▄░░█░░█░█░█░█|░░░█░█░█▀█░█░█░█░█░█▀█░█░░' \
+      '░▀░░░▄▀▄░▄▀▄░▄▀▄░▀▀▀░▀░▀░▀▀▀|░░░▀░▀░▀░▀░▀░▀░▀▀▀░▀░▀░▀▀▀'; do
+      sp_accent="${sp_row%%|*}"; sp_rest="${sp_row#*|}"
+      if [ -n "$sp_accent" ]; then printf '%s%s%s' "$sp_green" "${sp_accent//░/${sp_dim}░${sp_green}}" "$sp_reset"; fi
+      printf '%s%s\n' "${sp_rest//░/${sp_dim}░${sp_reset}}" "$sp_reset"
     done
     printf '\n'
   fi
 fi
-printf '%sSupportPages Writer %s installed.%s\n' "$sp_bold" "$sp_version" "$sp_reset"
+printf '%sWTFM %s installed.%s\n' "$sp_bold" "$sp_version" "$sp_reset"
 if [ -n "$sp_path_note" ]; then printf '\n%s\n' "$sp_path_note"; fi
 printf '\n%sGet started%s\n\n' "$sp_bold" "$sp_reset"
-printf '  1. Set up this computer, once       %ssupportpages setup%s\n' "$sp_cmd" "$sp_reset"
-printf '  2. Then, in each project folder    %ssupportpages init%s\n' "$sp_cmd" "$sp_reset"
+printf '  1. Set up this computer, once       %swtfm setup%s\n' "$sp_cmd" "$sp_reset"
+printf '  2. Then, in each project folder    %swtfm init%s\n' "$sp_cmd" "$sp_reset"
 printf '  3. Open Claude Code or Codex in the project and ask for an article:\n'
 printf '     %s"Write an illustrated guide to inviting a teammate."%s\n' "$sp_dim" "$sp_reset"
-printf '\nArticles are saved in your project, with no account needed. Run %ssupportpages publish%s\n' "$sp_cmd" "$sp_reset"
-printf 'later to host them on a SupportPages.io help centre.\n\n'
+printf '\nArticles are saved in your project, with no account needed. Run %swtfm publish%s\n' "$sp_cmd" "$sp_reset"
+printf 'later to host them on a SupportPages.io help centre.\n'
+printf '\n%sFeeling lucky?%s\n\n' "$sp_bold" "$sp_reset"
+printf '  Write the whole manual in one go    %swtfm yolo%s\n' "$sp_cmd" "$sp_reset"
+printf '  %sRuns on SupportPages.io as drafts; needs an account and repository access.%s\n\n' "$sp_dim" "$sp_reset"
 }
 
 supportpages_install "$@"

@@ -3,6 +3,7 @@ import { chmod, lstat, mkdir, open, rename, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fail } from './errors.js';
+import { CLI_NAME } from './brand.js';
 
 export type Account = { id: string; email: string };
 export type Credential = { token: string; account?: Account };
@@ -34,7 +35,7 @@ export async function readCredential(filename: string, origin: string): Promise<
   if (!path.isAbsolute(filename)) fail('invalid_credentials_file', 'The token file path must be absolute.');
   let file;
   try { file = await open(filename, constants.O_RDONLY | constants.O_NOFOLLOW); }
-  catch { fail('invalid_credentials_file', 'Cannot open the token file. Run supportpages login to sign in.'); }
+  catch { fail('invalid_credentials_file', `Cannot open the token file. Run ${CLI_NAME} login to sign in.`); }
   try {
     const info = await file.stat();
     if (!info.isFile() || info.size > 4096 || (info.mode & 0o077) !== 0 || (process.getuid && info.uid !== process.getuid())) {
@@ -43,7 +44,7 @@ export async function readCredential(filename: string, origin: string): Promise<
     const raw = await file.readFile('utf8');
     if (Buffer.byteLength(raw) > 4096) fail('invalid_credentials_file', 'The token file exceeds its size limit.');
     let value: unknown;
-    try { value = JSON.parse(raw); } catch { fail('invalid_credentials_file', 'The token file is invalid. Run supportpages login to sign in.'); }
+    try { value = JSON.parse(raw); } catch { fail('invalid_credentials_file', `The token file is invalid. Run ${CLI_NAME} login to sign in.`); }
     const data = value as Record<string, unknown> | null;
     if (!data || ![1, 2].includes(data.version as number) || data.api_origin !== origin || typeof data.token !== 'string' || !/^sp_local_[a-f0-9]{64}$/.test(data.token)) {
       fail('invalid_credentials_file', 'The token file does not contain a valid credential for this API origin.');

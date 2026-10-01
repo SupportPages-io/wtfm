@@ -74,7 +74,7 @@ user affirmatively asks to publish that draft.
 as Markdown with their screenshots. There is no capacity check, preview or editor
 link. Show the saved markdown path returned by `supportpages_complete_article` as
 the deliverable and never ask whether to publish automatically. Mention once
-that running `supportpages publish` in the terminal hosts the saved articles.
+that running `wtfm publish` in the terminal hosts the saved articles.
 
 If the user explicitly asks to host or publish saved local articles, call
 `supportpages_publish`. Follow its browser approval and help-centre selection

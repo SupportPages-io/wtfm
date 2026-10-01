@@ -56,7 +56,7 @@ test('init can save articles in the project without any sign-in, then write open
   assert.match(h.logs.join('\n'), /public URL, editor review links and publishing from your agent/);
   assert.match(h.logs.join('\n'), /nothing leaves your computer/);
   assert.match(h.logs.join('\n'), /Articles will be saved in docs\/help/);
-  assert.match(h.logs.join('\n'), /supportpages publish/);
+  assert.match(h.logs.join('\n'), /wtfm publish/);
   assert.equal(h.calls.find(call => call[0] === 'open'), undefined, 'init points to the coding agent instead of opening it');
   assert.match(h.logs.join('\n'), /Open Codex in this project and ask for an article/);
   assert.ok(await h.f.ws.exists(path.join(h.configDir.replace(h.f.root + '/', ''), 'workspaces')));
@@ -68,7 +68,7 @@ test('init can save articles in the project without any sign-in, then write open
   await runCli({ ...h.options, command: 'status' }, h.deps);
   assert.match(h.logs.join('\n'), /Local articles/);
   assert.match(h.logs.join('\n'), /saved in docs\/help/);
-  assert.match(h.logs.join('\n'), /supportpages publish/);
+  assert.match(h.logs.join('\n'), /wtfm publish/);
 });
 
 test('repeat init on a local folder keeps it local by default, and the default folder is the output directory', async t => {
@@ -119,7 +119,7 @@ test('configure edits the local writing style, preferences and folder without si
   h.answers['Show occasional reminders about hosting saved articles on SupportPages.io?'] = true;
   await runCli({ ...h.options, command: 'configure' }, h.deps);
   assert.equal((await new HostingReminders(h.configDir).preference(origin)).enabled, true);
-  await assert.rejects(runCli({ ...h.options, command: 'sync' }, h.deps), { code: 'local_workspace', message: /supportpages publish/ });
+  await assert.rejects(runCli({ ...h.options, command: 'sync' }, h.deps), { code: 'local_workspace', message: /wtfm publish/ });
   await assert.rejects(runCli({ ...h.options, command: 'sections' }, h.deps), { code: 'authentication_required' });
 });
 
@@ -170,7 +170,7 @@ test('publish signs in, connects a help centre and uploads the selected local ar
   assert.deepEqual(result.uploaded.map(item => item.title), ['Alpha guide', 'Beta guide']);
   assert.match(h.logs.join('\n'), /Alpha guide · https:\/\/app\.supportpages\.io\/projects\/example\?article=1/);
   assert.match(h.logs.join('\n'), /Gamma guide: .*article hosting slots/);
-  assert.match(h.logs.join('\n'), /run supportpages publish again/);
+  assert.match(h.logs.join('\n'), /run wtfm publish again/);
   assert.equal(await h.f.bridge.destination(), 'hosted');
   assert.equal((await h.f.ws.json('.rtfm/supportpages/articles/alpha-guide.json')).project_id, '1');
   assert.equal((await h.f.ws.json('.rtfm/supportpages/articles/gamma-guide.json')).project_id, undefined);
@@ -343,12 +343,12 @@ test('init --refresh reruns detection, and a reused analysis says how to redo it
   h.logs.length = 0;
   await runCli(h.options, h.deps);
   assert.equal(runs, 0);
-  assert.match(h.logs.join('\n'), /Using the project analysis from \d{4}-\d{2}-\d{2}\. Rerun with supportpages init --refresh to redo it\./);
+  assert.match(h.logs.join('\n'), /Using the project analysis from \d{4}-\d{2}-\d{2}\. Rerun with wtfm init --refresh to redo it\./);
   // --refresh runs detection again and does not claim to be reusing anything.
   h.logs.length = 0;
   await runCli({ ...h.options, refresh: true }, h.deps);
   assert.equal(runs, 1);
   assert.doesNotMatch(h.logs.join('\n'), /Using the project analysis from/);
   // The recovery command keeps the flags that were used.
-  assert.equal(retryCommand({ refresh: true, 'app-type': 'terminal' }), "supportpages init --app-type 'terminal' --refresh");
+  assert.equal(retryCommand({ refresh: true, 'app-type': 'terminal' }), "wtfm init --app-type 'terminal' --refresh");
 });

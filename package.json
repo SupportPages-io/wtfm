@@ -5,18 +5,19 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SupportPages-io/supportpages-writer.git"
+    "url": "git+https://github.com/SupportPages-io/wtfm.git"
   },
-  "homepage": "https://github.com/SupportPages-io/supportpages-writer#readme",
+  "homepage": "https://github.com/SupportPages-io/wtfm#readme",
   "bugs": {
-    "url": "https://github.com/SupportPages-io/supportpages-writer/issues"
+    "url": "https://github.com/SupportPages-io/wtfm/issues"
   },
   "type": "module",
   "bin": {
     "supportpages-writer": "scripts/cli.mjs",
     "supportpages-mcp": "dist/index.js",
     "supportpages-setup": "scripts/install.mjs",
-    "supportpages": "scripts/cli.mjs"
+    "supportpages": "scripts/cli.mjs",
+    "wtfm": "scripts/cli.mjs"
   },
   "files": [
     "dist",

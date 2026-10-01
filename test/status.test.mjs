@@ -120,5 +120,5 @@ test('a folder that saves articles locally reports local without any network, wi
   result = await f.session.status();
   assert.equal(result.status, 'local'); assert.equal(result.credentials_configured, true);
   const initialized = await f.session.init({});
-  assert.equal(initialized.status, 'local'); assert.match(initialized.instructions, /supportpages analyse/);
+  assert.equal(initialized.status, 'local'); assert.match(initialized.instructions, /wtfm analyse/);
 });

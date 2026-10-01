@@ -224,6 +224,23 @@
         "read"
       ],
       "next_step": null
+    },
+    "generate_help_centre": {
+      "action": "generate_help_centre",
+      "allowed": false,
+      "execution": "hosted",
+      "required_scopes": [
+        "read",
+        "generate"
+      ],
+      "next_step": {
+        "code": "permission_required",
+        "message": "Approve the missing device permissions, then retry this action.",
+        "requested_action": "generate_help_centre",
+        "missing_scopes": [
+          "generate"
+        ]
+      }
     }
   }
 }

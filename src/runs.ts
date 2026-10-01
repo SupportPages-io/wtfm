@@ -7,6 +7,7 @@ import { fail } from './errors.js';
 import { articleLink } from './article-link.js';
 import { repositoryInvitationSchema } from './repository-benefits.js';
 import { hostingInvitationSchema } from './hosting-benefits.js';
+import { CLI_NAME } from './brand.js';
 
 export const processSessionId = randomUUID();
 export const runSchema = z.object({
@@ -44,7 +45,7 @@ export function uploadRecovery(run: Run): string {
   const reason = run.error?.code === 'plan_limit'
     ? 'Free up article capacity or update the account plan.'
     : ['permission_denied', 'invalid_credentials'].includes(run.error?.code ?? '')
-      ? 'Check the token permissions and project access; reconnect with supportpages init if needed.'
+      ? `Check the token permissions and project access; reconnect with ${CLI_NAME} init if needed.`
       : ['run_closed', 'revision_conflict', 'article_deleted', 'article_unavailable'].includes(run.error?.code ?? '')
         ? 'Review the existing article in the web app. Do not overwrite browser changes or restart a closed run.'
         : 'Resolve the reported upload problem.';

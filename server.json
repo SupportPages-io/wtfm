@@ -4,7 +4,7 @@
   "title": "SupportPages Writer",
   "description": "Your coding agent writes illustrated help articles from your codebase, with screenshots rendered from the real interface code.",
   "repository": {
-    "url": "https://github.com/SupportPages-io/supportpages-writer",
+    "url": "https://github.com/SupportPages-io/wtfm",
     "source": "github"
   },
   "version": "0.2.2",

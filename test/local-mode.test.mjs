@@ -49,7 +49,7 @@ test('completing a local run finalizes, exports Markdown beside the screenshots 
   assert.equal(result.image_count, 1); assert.equal(result.editor_url, null);
   assert.match(result.link_message, /^Saved to /); assert.match(result.preview_uri, /^file:/);
   assert.ok(result.instructions.some(line => /supportpages_publish/.test(line)));
-  assert.ok(!result.instructions.some(line => /terminal|supportpages publish\b/.test(line)), 'the agent never points at the CLI');
+  assert.ok(!result.instructions.some(line => /terminal|(?:wtfm|supportpages) publish\b/.test(line)), 'the agent never points at the CLI');
   assert.ok(result.instructions.some(line => /ignored by git/.test(line)));
   assert.match(await readFile(result.markdown_path, 'utf8'), /^# Invite a teammate\n/);
   const run = await f.ws.json(`.rtfm/supportpages/runs/${prepared.run_id}/run.json`);
@@ -219,11 +219,11 @@ test('a project map that reports an incomplete detection is not ready and names 
   assert.equal(status.generation_ready, false);
   assert.equal(status.analysis.status, 'invalid');
   assert.match(status.instructions, /Explicit app_type=terminal is required/);
-  assert.match(status.instructions, /supportpages analyse --app-type terminal/);
+  assert.match(status.instructions, /wtfm analyse --app-type terminal/);
   await assert.rejects(f.bridge.prepare({ title: 'How to install', article_type: 'how-to' }), error => {
     assert.equal(error.code, 'analysis_required');
     assert.equal(error.details?.app_type, 'terminal');
-    assert.equal(error.details?.rerun, 'supportpages analyse --app-type terminal');
+    assert.equal(error.details?.rerun, 'wtfm analyse --app-type terminal');
     assert.match(error.message, /Explicit app_type=terminal is required/);
     return true;
   });

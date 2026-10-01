@@ -1,6 +1,7 @@
 import readline from 'node:readline';
 import { Writable } from 'node:stream';
 import { stripVTControlCharacters } from 'node:util';
+import { CLI_NAME, LEGACY_CLI_NAME } from './brand.mjs';
 // The standalone CLI bundles Clack. The source install.sh bootstrap can run
 // before npm dependencies exist, so keep its plain prompts and --help usable.
 let prompts;
@@ -19,7 +20,7 @@ export function emphasizeCommands(text, output = process.stdout, env = process.e
   if (!output.isTTY || env.TERM === 'dumb' || env.NO_COLOR !== undefined) return String(text);
   const argument = String.raw`(?:'[^'\n]*'|"[^"\n]*"|[^\s,;!?]+)`;
   const flag = String.raw`(?:--(?:dev|refresh|yes|json|skills-only)\b|--(?:workspace|api-url|config-dir|skills-dir|project|agent|app-type)(?:[ \t]+|=)${argument})`;
-  const command = new RegExp(String.raw`(?<![\w/.-])supportpages[ \t]+(?:setup|init|uninit|login|logout|status|sync|configure|doctor|analyse|sections|recommend|write|publish|update|remove|--help|--version)\b(?:[ \t]+${flag})*`, 'g');
+  const command = new RegExp(String.raw`(?<![\w/.-])(?:${CLI_NAME}|${LEGACY_CLI_NAME})[ \t]+(?:setup|init|uninit|login|logout|status|sync|configure|doctor|analyse|sections|recommend|write|publish|yolo|update|remove|--help|--version)\b(?:[ \t]+${flag})*`, 'g');
   return String(text).replace(command, value => {
     const suffix = value.match(/[.]+$/)?.[0] ?? '';
     return `\x1b[1;36m${suffix ? value.slice(0, -suffix.length) : value}\x1b[39;22m${suffix}`;
@@ -40,23 +41,31 @@ const wrapWords = (text, width) => {
   return lines;
 };
 
-// The supportpages.io wordmark in figlet's "Pagga" font. Generated once with
-// figlet (see dev/figlet-fonts.mjs); the CLI does not depend on it.
+// "Write the F***ing Manual" in figlet's "Pagga" font, over two lines so it
+// fits an 80-column terminal. Generated once with figlet (see
+// dev/figlet-fonts.mjs); the CLI does not depend on it.
 const logoRows = [
-  '░█▀▀░█░█░█▀█░█▀█░█▀█░█▀▄░▀█▀░█▀█░█▀█░█▀▀░█▀▀░█▀▀░░░░▀█▀░█▀█',
-  '░▀▀█░█░█░█▀▀░█▀▀░█░█░█▀▄░░█░░█▀▀░█▀█░█░█░█▀▀░▀▀█░░░░░█░░█░█',
-  '░▀▀▀░▀▀▀░▀░░░▀░░░▀▀▀░▀░▀░░▀░░▀░░░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀░░▀▀▀░▀▀▀',
+  '░█░█░█▀▄░▀█▀░▀█▀░█▀▀░░░▀█▀░█░█░█▀▀░░░░░░░░░░░░░░░░░░░░',
+  '░█▄█░█▀▄░░█░░░█░░█▀▀░░░░█░░█▀█░█▀▀░░░░░░░░░░░░░░░░░░░░',
+  '░▀░▀░▀░▀░▀▀▀░░▀░░▀▀▀░░░░▀░░▀░▀░▀▀▀░░░░░░░░░░░░░░░░░░░░',
+  '░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░',
+  '░█▀▀░▄░▄░▄░▄░▄░▄░▀█▀░█▀█░█▀▀░░░█▄█░█▀█░█▀█░█░█░█▀█░█░░',
+  '░█▀▀░▄█▄░▄█▄░▄█▄░░█░░█░█░█░█░░░█░█░█▀█░█░█░█░█░█▀█░█░░',
+  '░▀░░░▄▀▄░▄▀▄░▄▀▄░▀▀▀░▀░▀░▀▀▀░░░▀░▀░▀░▀░▀░▀░▀▀▀░▀░▀░▀▀▀',
 ];
-const logoWidth = 59;
-// ".io" starts here; it and the ░ texture are dimmed like the brand's grey.
-const suffixColumn = 48;
+const logoWidth = 54;
+// "F***ing" (rows 4-6, before this column) is green, as on the landing page;
+// the ░ texture is dimmed.
+const accentRow = 4, accentColumn = 28;
 
 /** The logo when it fits unwrapped, otherwise undefined. */
 export function logo({ columns = 80, color = false } = {}) {
   if (columns <= logoWidth) return undefined;
   if (!color) return logoRows.join('\n');
-  return logoRows.map(row => Array.from(row, (char, column) =>
-    char === '░' || column >= suffixColumn ? `\x1b[90m${char}\x1b[39m` : char).join('').replace(/\x1b\[39m\x1b\[90m/g, '')).join('\n');
+  const paint = (char, row, column) =>
+    char === '░' ? `\x1b[90m${char}\x1b[39m` : row >= accentRow && column < accentColumn ? `\x1b[32m${char}\x1b[39m` : char;
+  return logoRows.map((row, index) => Array.from(row, (char, column) => paint(char, index, column)).join('')
+    .replace(/\x1b\[39m\x1b\[(90|32)m/g, '\x1b[$1m')).join('\n');
 }
 
 export class Cancelled extends Error {

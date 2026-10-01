@@ -6,8 +6,8 @@
     {
       "name": "supportpages-writer",
       "description": "Your coding agent writes illustrated help articles from your codebase, with screenshots rendered from the real interface code.",
-      "source": { "source": "url", "url": "https://github.com/SupportPages-io/supportpages-writer.git", "ref": "plugin" },
-      "homepage": "https://github.com/SupportPages-io/supportpages-writer#readme",
+      "source": { "source": "url", "url": "https://github.com/SupportPages-io/wtfm.git", "ref": "plugin" },
+      "homepage": "https://github.com/SupportPages-io/wtfm#readme",
       "license": "Apache-2.0"
     }
   ]

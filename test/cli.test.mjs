@@ -708,12 +708,12 @@ test('a computer without the integration is set up during init, selecting a sole
   h.deps.install=async()=>{throw Error('download failed');};
   h.session.status=async()=>assert.fail('No account access after installation failure');
   h.session.login=async()=>assert.fail('No sign-in after installation failure');
-  await assert.rejects(runCli(h.options,h.deps),{code:'installation_incomplete',message:/rerun supportpages init to retry/});
+  await assert.rejects(runCli(h.options,h.deps),{code:'installation_incomplete',message:/rerun wtfm init to retry/});
   // The same failure during setup sends the user back to setup.
   const setup=await configuredCli(t,{managed:false});
   setup.deps.ui.choose=async question=>question==='How would you like to get started?'?'local':question;
   setup.deps.install=async()=>{throw Error('download failed');};
-  await assert.rejects(runCli({...setup.options,command:'setup'},setup.deps),{code:'installation_incomplete',message:/rerun supportpages setup to retry/});
+  await assert.rejects(runCli({...setup.options,command:'setup'},setup.deps),{code:'installation_incomplete',message:/rerun wtfm setup to retry/});
 });
 
 test('init with an explicit Codex selection adds Codex to an existing Claude integration', async t => {
@@ -741,9 +741,9 @@ test('a folder nobody has set up is not reported as a sign-in problem, and hosti
     // The headline promise is that writing articles needs no account. Neither
     // read-only command may contradict it before the user has chosen anything.
     assert.doesNotMatch(output, /authentication[ _]required/i, `${command} must not report an authentication failure`);
-    assert.doesNotMatch(output, /supportpages login/, `${command} must not push sign-in as the next step`);
+    assert.doesNotMatch(output, /(?:wtfm|supportpages) login/, `${command} must not push sign-in as the next step`);
     assert.match(output, /no account/i);
-    assert.match(output, /supportpages init/);
+    assert.match(output, /wtfm init/);
   }
 });
 
@@ -769,7 +769,7 @@ test('status prints the signed-in account and a next step for unlinked folders',
   assert.match(logs.join('\n'), /Destination not chosen/);
   assert.match(logs.join('\n'), /Signed in as alice@example.com/);
   // Even for a signed-in account, a help centre is one of two destinations.
-  assert.match(logs.join('\n'), /Run supportpages init to choose where this folder’s articles go/);
+  assert.match(logs.join('\n'), /Run wtfm init to choose where this folder’s articles go/);
   assert.match(logs.join('\n'), /saved in the project with no help centre/);
   assert.ok(!logs.join('\n').includes(token));
 });
@@ -948,7 +948,7 @@ test('doctor says how to connect an installed but unregistered coding agent', as
   h.session.status = async () => ({ status: 'project_required' });
   await runCli({ ...h.options, command: 'doctor' }, h.deps);
   const logs = h.logs.join('\n');
-  assert.match(logs, /Codex is installed but not connected\. Run supportpages setup to connect it\./);
+  assert.match(logs, /Codex is installed but not connected\. Run wtfm setup to connect it\./);
   assert.doesNotMatch(logs, /Claude Code is installed but not connected/);
 });
 
@@ -956,7 +956,7 @@ test('configure asks for init on a folder that was never set up', async t => {
   const h = await configuredCli(t, { managed: false });
   await rm(await h.f.ws.resolve('.rtfm/supportpages/binding.json'));
   h.session.status = async () => assert.fail('configure must not read project status');
-  await assert.rejects(runCli({ ...h.options, command: 'configure' }, h.deps), { code: 'project_required', message: /Run supportpages init/ });
+  await assert.rejects(runCli({ ...h.options, command: 'configure' }, h.deps), { code: 'project_required', message: /Run wtfm init/ });
 });
 
 test('init states the model and changes it only when asked, reusing the listed models', async t => {

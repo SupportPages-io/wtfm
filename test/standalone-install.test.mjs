@@ -132,6 +132,49 @@ test('standalone installer supports paths with spaces and quotes, repeat install
   assert.match(await readFile(launcher,'utf8'),/SupportPages managed launcher/);
 });
 
+test('installer creates the wtfm command and keeps supportpages as an identical alias',async t=>{
+  const f=await archiveFixture(t);
+  const result=install(f);assert.equal(result.status,0,result.stderr);
+  for(const name of ['wtfm','supportpages']) {
+    const run=spawnSync(path.join(f.bin,name),['--version'],{encoding:'utf8',env:{PATH:'/usr/bin:/bin'}});
+    assert.equal(run.status,0,run.stderr);assert.equal(run.stdout.trim(),'0.1.0');
+  }
+  assert.equal(await readFile(path.join(f.bin,'wtfm'),'utf8'),await readFile(path.join(f.bin,'supportpages'),'utf8'));
+  assert.match(result.stdout,/wtfm setup/);assert.doesNotMatch(result.stdout,/supportpages setup/);
+  // An unrelated wtfm blocks a fresh install rather than being overwritten.
+  const other=await archiveFixture(t);await mkdir(other.bin);await writeFile(path.join(other.bin,'wtfm'),'unrelated');
+  const blocked=install(other);assert.notEqual(blocked.status,0);assert.match(blocked.stderr,/unrelated wtfm/);
+  assert.equal(await readFile(path.join(other.bin,'wtfm'),'utf8'),'unrelated');
+});
+
+test('--update adds the wtfm command to an installation that only had supportpages',async t=>{
+  const first=await archiveFixture(t),next=await archiveFixture(t,'0.2.0');
+  assert.equal(install(first).status,0);
+  await rm(path.join(first.bin,'wtfm'));
+  const fakeBin=path.join(first.root,'download-tools');await mkdir(fakeBin);
+  await writeFile(path.join(fakeBin,'curl'),`#!/bin/sh
+url= output=
+while [ "$#" -gt 0 ]; do
+  case "$1" in https://*) url="$1" ;; -o) shift; output="$1" ;; esac
+  shift
+done
+case "$url" in
+  */latest.txt) printf '0.2.0\\n' ;;
+  *.sha256) cp "$TEST_ARCHIVE.sha256" "$output" ;;
+  *) cp "$TEST_ARCHIVE" "$output" ;;
+esac
+`,{mode:0o755});
+  const update=()=>spawnSync('bash',['install-cli.sh','--yes','--update','--data-dir',first.data,'--bin-dir',first.bin],{
+    env:{...process.env,PATH:fakeBin+path.delimiter+process.env.PATH,SUPPORTPAGES_CLI_RELEASE_URL:'https://downloads.example/cli',TEST_ARCHIVE:next.file},encoding:'utf8',timeout:10000,
+  });
+  const result=update();assert.equal(result.status,0,result.stderr);
+  for(const name of ['wtfm','supportpages']) assert.equal(spawnSync(path.join(first.bin,name),['--version'],{encoding:'utf8'}).stdout.trim(),'0.2.0');
+  // An update never fails over another tool's wtfm; supportpages keeps working.
+  await writeFile(path.join(first.bin,'wtfm'),'unrelated');
+  const kept=update();assert.equal(kept.status,0,kept.stderr);assert.match(kept.stderr,/unrelated wtfm/);
+  assert.equal(await readFile(path.join(first.bin,'wtfm'),'utf8'),'unrelated');
+});
+
 test('failed checksums, unsafe archives and unrelated executables preserve existing files',async t=>{
   const f=await archiveFixture(t);await mkdir(f.bin);await writeFile(path.join(f.bin,'supportpages'),'unrelated');
   assert.notEqual(install(f).status,0);assert.equal(await readFile(path.join(f.bin,'supportpages'),'utf8'),'unrelated');
@@ -184,8 +227,8 @@ test('piped installer works without a controlling terminal and truncated scripts
   assert.notEqual(truncated.status,0);
   await assert.rejects(lstat(f.data),{code:'ENOENT'});
   const complete=spawnSync('bash',args,{input:script,env,encoding:'utf8',detached:true,timeout:10000});
-  assert.equal(complete.status,0,complete.stderr);assert.doesNotMatch(complete.stdout,/Add supportpages/);
-  assert.match(complete.stdout,/For this terminal/);assert.match(complete.stdout,/Get started\n\n  1\. Set up this computer, once +supportpages setup\n  2\. Then, in each project folder +supportpages init\n/);assert.match(complete.stdout,/Articles are saved in your project, with no account needed/);assert.doesNotMatch(complete.stdout,/\x1b/);
+  assert.equal(complete.status,0,complete.stderr);assert.doesNotMatch(complete.stdout,/Add wtfm/);
+  assert.match(complete.stdout,/For this terminal/);assert.match(complete.stdout,/Get started\n\n  1\. Set up this computer, once +(?:wtfm|supportpages) setup\n  2\. Then, in each project folder +(?:wtfm|supportpages) init\n/);assert.match(complete.stdout,/Articles are saved in your project, with no account needed/);assert.match(complete.stdout,/Feeling lucky\?\n\n  Write the whole manual in one go +wtfm yolo\n/);assert.doesNotMatch(complete.stdout,/\x1b/);
 });
 
 test('failed upgrade probes, checksums and concurrent installs retain the active version',async t=>{
@@ -258,7 +301,7 @@ test('PATH prompt accepts or declines through the controlling terminal and prese
     if(answer==='linked') {await writeFile(target,'keep\n');await symlink(target,profile);}
     const result=spawnSync('python3',['-c',python,answer==='n'?'n':'y','install-cli.sh','--archive',f.file,'--data-dir',f.data,'--bin-dir',f.bin],{env:{...process.env,HOME:home,ZDOTDIR:home,SHELL:'/bin/zsh'},encoding:'utf8',timeout:15000});
     if(result.status===77 && result.stdout.includes("TTY_ACCESS_DENIED")) {t.skip("Sandbox denies opening /dev/tty; covered on release runners");return;}
-    assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/Add supportpages/);
+    assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/Add wtfm/);
     if(answer==='y') assert.match(await readFile(profile,'utf8'),/# SupportPages Writer/);
     if(answer==='n') await assert.rejects(lstat(profile),{code:'ENOENT'});
     if(answer==='linked') {assert.match(result.stdout,/symlink/);assert.equal(await readFile(target,'utf8'),'keep\n');}

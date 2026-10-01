@@ -11,6 +11,7 @@ import { installCodexIntegration } from './codex-integration.mjs';
 import { ensureRenderer } from './renderer.mjs';
 import { claudePluginInstalled } from './claude-plugin.mjs';
 import { pathToFileURL } from 'node:url';
+import { CLI_NAME } from './brand.mjs';
 
 export const SKILLS = ARTICLE_SKILLS;
 const digest = text => createHash('sha256').update(text).digest('hex').slice(0, 12);
@@ -125,7 +126,7 @@ export async function runInstaller(options, dependencies) {
   const { ui: suppliedUi, installRoot, home = os.homedir(), run = command, env = process.env } = dependencies;
   // Setup writes this copy's path into client configuration; npx's cache is temporary.
   if (installRoot.split(path.sep).includes('_npx')) {
-    throw new Error('Run setup from an installed copy: npm install -g supportpages-writer, then supportpages setup. npx runs from a temporary cache that npm may delete.');
+    throw new Error(`Run setup from an installed copy: npm install -g supportpages-writer, then ${CLI_NAME} setup. npx runs from a temporary cache that npm may delete.`);
   }
   // Setup and init run this inside their own wizard frame: no step headers, and no
   // standalone-installer indentation on the lines that remain.
@@ -263,6 +264,6 @@ export async function runInstaller(options, dependencies) {
   ui.line('\n  Setup complete.');
   ui.line('  Restart your coding client and open any product repository.');
   ui.line('  Try: “Initialize SupportPages.io for this project.”');
-  ui.line('  Run supportpages setup once on this computer, then supportpages init inside each project folder.');
+  ui.line(`  Run ${CLI_NAME} setup once on this computer, then ${CLI_NAME} init inside each project folder.`);
   return { name, clients: receipt.clients, manualPath, skillsDir: skills.directory };
 }

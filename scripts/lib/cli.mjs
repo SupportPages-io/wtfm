@@ -27,6 +27,8 @@ import { selectClaudeConnection } from './claude-connection.mjs';
 import { writingStylePresets, defaultWritingStyle } from '../../dist/writing-style.js';
 import { setupInvitation } from '../../dist/hosting-benefits.js';
 import { defaultPreferences } from '../../dist/settings.js';
+import { CLI_NAME, LANDING_URL } from './brand.mjs';
+import { runYolo, yoloOperation, followYolo, summarizeYolo, describeProgress, failureMeanings } from './yolo.mjs';
 
 const remoteId = z.string().regex(/^[1-9][0-9]*$/);
 const settingsSchema = z.object({
@@ -109,7 +111,7 @@ async function ensureIntegration(config, options, deps, skillsDir, session, { cl
   if(await exists(receipt)) { try { clients=JSON.parse(await readFile(receipt,'utf8')).clients ?? []; } catch {} }
   const available=[];
   for(const client of ['codex','claude']) if((await run(client,['--version'],{capture:true})).code===0) available.push(client);
-  if(!available.length) fail('missing_dependency',`Install Codex or Claude Code and make its command available in this terminal, then rerun ${retry}. See https://supportpages.io/local.`);
+  if(!available.length) fail('missing_dependency',`Install Codex or Claude Code and make its command available in this terminal, then rerun ${retry}. See ${LANDING_URL}#install.`);
   if(options.agent && !available.includes(options.agent)) fail('agent_unavailable',`Install ${options.agent==='codex'?'Codex':'Claude Code'} before selecting it for this project.`);
   const saved=await readAgentSettings({ws:await session.workspace(),stateRoot:connectionStateRoot(config.origin,config.dev)});
   const previous=saved.agents ?? (saved.agent ? [saved.agent] : clients);
@@ -142,7 +144,7 @@ async function ensureIntegration(config, options, deps, skillsDir, session, { cl
     return {skillsDir,clients:selectedClients,restartRequired:removed.length > 0};
   }
   const missing=checks.filter(item=>!item.available && item.name==='git');
-  if(missing.length) fail('missing_dependency',`Install Git with your system package manager, then rerun ${retry}. See https://supportpages.io/local#prerequisites.`);
+  if(missing.length) fail('missing_dependency',`Install Git with your system package manager, then rerun ${retry}. See ${LANDING_URL}#install.`);
   ui.line(`Coding agent: ${clientList(selectedClients)}`);
   const download=checks.some(item=>!item.available && item.name==='article renderer and Chromium');
   if(download) ui.info?.('Article screenshots are taken in a browser that SupportPages Writer downloads once. The first download can take a few minutes.');
@@ -270,7 +272,7 @@ export async function chooseHelpCentre(session, bridge, {ui,open=openBrowser}, {
     if(choice==='new') {
       if(!settings.can_create_project) {
         const url=settings.project_creation_upgrade_url;
-        if(!url) fail('permission_denied','This connection cannot create help centres. Run supportpages login, then try again.');
+        if(!url) fail('permission_denied',`This connection cannot create help centres. Run ${CLI_NAME} login, then try again.`);
         ui.line('Upgrade your plan to create another help centre.');
         if(!await open(url)) ui.line(`Open this link to upgrade: ${url}`);
         ui.line('After upgrading, return here to continue setup.');
@@ -316,7 +318,7 @@ export async function chooseHelpCentre(session, bridge, {ui,open=openBrowser}, {
       }
     } else {
       project=projects.find(project=>project.id===choice);
-      if(!project) fail('permission_denied','This help centre is no longer accessible. Run supportpages init again.');
+      if(!project) fail('permission_denied',`This help centre is no longer accessible. Run ${CLI_NAME} init again.`);
       const summary=[`Help centre: ${clean(project.name)}`, ...(project.help_centre_url ? [`Address: ${clean(project.help_centre_url)}`] : []),
         'Your coding agent can read context and upload article drafts.','Review and publish in SupportPages.io.'].join('\n');
       if(ui.note) ui.note(summary,'Ready to connect'); else ui.line(summary);
@@ -334,7 +336,7 @@ export async function chooseHelpCentre(session, bridge, {ui,open=openBrowser}, {
 
 export function retryCommand(options) {
   const quote=value=>"'"+String(value).replaceAll("'", "'\\''")+"'";
-  const args=['supportpages','init'];
+  const args=[CLI_NAME,'init'];
   if(options.dev) args.push('--dev');
   for(const key of ['project','workspace','api-url','config-dir','skills-dir','app-type']) {
     if(options[key]!==undefined) args.push('--'+key,quote(options[key]));
@@ -355,7 +357,7 @@ async function registeredClients(config, clients, run) {
 async function verifyInstallation(config, integration, run) {
   const checks=await generationChecks(integration.skillsDir,run);
   const registered=await registeredClients(config, integration.clients, run);
-  if(checks.some(check=>!check.available) || !registered.length || registered.some(value=>!value)) fail('installation_incomplete','The coding-agent integration is incomplete. Run supportpages setup, fix the reported prerequisites, then rerun supportpages init.');
+  if(checks.some(check=>!check.available) || !registered.length || registered.some(value=>!value)) fail('installation_incomplete',`The coding-agent integration is incomplete. Run ${CLI_NAME} setup, fix the reported prerequisites, then rerun ${CLI_NAME} init.`);
 }
 
 /** Coding-agent commands present on this computer, whether or not SupportPages.io is connected to them. */
@@ -389,7 +391,7 @@ async function computerSetup(config, options, deps, skillsDir, session) {
   ui.step?.(1,'Set up your coding agent',3);
   const integration=await ensureIntegration(config,options,deps,skillsDir,session);
   const checks=await generationChecks(integration.skillsDir,run);
-  if(checks.some(check=>!check.available)) fail('missing_dependency','Article rendering is not ready. Run supportpages doctor, fix the reported prerequisites, then rerun supportpages setup.');
+  if(checks.some(check=>!check.available)) fail('missing_dependency',`Article rendering is not ready. Run ${CLI_NAME} doctor, fix the reported prerequisites, then rerun ${CLI_NAME} setup.`);
   ui.step?.(2,'Choose your SupportPages.io account',3);
   let mode;
   // Ask before contacting the service, so choosing local articles works offline.
@@ -484,26 +486,47 @@ async function readyLocally(session, config, integration, ui, run, options, deps
 
 function authCommand(command, config) {
   const quote=value=>"'"+String(value).replaceAll("'", "'\\''")+"'";
-  return `supportpages ${command}${config.dev ? ' --dev' : ''}${config.origin!==defaultOrigin(config.dev) ? ' --api-url '+quote(config.origin) : ''}`;
+  return `${CLI_NAME} ${command}${config.dev ? ' --dev' : ''}${config.origin!==defaultOrigin(config.dev) ? ' --api-url '+quote(config.origin) : ''}`;
 }
 
 // A folder with no destination yet needs setup, not an account: lead with the
 // choice that costs nothing and offer hosting on its merits.
-const statusHint = (status, config) => status==='setup_required' ? ['Run supportpages init to set up this folder. Articles can be saved right here as Markdown and screenshots, with no account.', ...setupInvitation()]
+const statusHint = (status, config) => status==='setup_required' ? [`Run ${CLI_NAME} init to set up this folder. Articles can be saved right here as Markdown and screenshots, with no account.`, ...setupInvitation()]
   : status==='authentication_required' ? [`This folder is linked to a help centre, so it needs a signed-in device. Run ${authCommand('login',config)} to sign in again.`]
-  : status==='project_required' ? ['Run supportpages init to choose where this folder’s articles go: a help centre for a public URL and editor review, or saved in the project with no help centre.']
+  : status==='project_required' ? [`Run ${CLI_NAME} init to choose where this folder’s articles go: a help centre for a public URL and editor review, or saved in the project with no help centre.`]
   : status==='local' ? [`Open your coding agent in this folder and ask for an article, or run ${authCommand('publish',config)} to host the saved articles on a help centre.`]
-  : ['Run supportpages init to finish setting up this repository.'];
+  : [`Run ${CLI_NAME} init to finish setting up this repository.`];
 
 const connectionLabel = status => status==='ready' ? 'connected to a help centre'
   : status==='local' ? 'saving articles in this project (no account needed)'
-  : status==='setup_required' ? 'not set up yet — run supportpages init (no account needed)'
+  : status==='setup_required' ? `not set up yet — run ${CLI_NAME} init (no account needed)`
   : status==='authentication_required' ? 'linked to a help centre, but this device is signed out'
   : status==='project_required' ? 'signed in; this folder has not chosen where its articles go'
   : status.replaceAll('_',' ');
 
-const cliNotice = notice => notice.replace('Ask me to turn this off', 'Run supportpages telemetry off to stop it');
-/** supportpages telemetry on|off|status: device-wide, so it needs no project folder. */
+/** The folder's `wtfm yolo` run in status: one line, or live progress while it runs in a terminal. */
+async function yoloStatus(bridge, status, options, deps) {
+  let run;
+  try { run=await yoloOperation(bridge); } catch(error) { if(!options.json) deps.ui.line(`Help centre writing: could not be checked (${publicError(error).message})`); return; }
+  const operation=run?.operation;
+  if(!operation) return;
+  const result=operation.result ?? {};
+  status.help_centre_generation={operation_id:operation.id,status:operation.status,attempt:operation.attempt,result,review_url:operation.review_url,error:operation.error};
+  if(options.json) return;
+  const {ui}=deps;
+  const running=['queued','running'].includes(operation.status);
+  ui.line(`Help centre writing (${CLI_NAME} yolo): ${running ? describeProgress(result) : operation.status==='succeeded' ? `finished · ${result.articles?.generated ?? 0} drafts written` : `stopped · ${failureMeanings[operation.error?.code] ?? clean(operation.error?.code ?? 'failed')} Run ${CLI_NAME} yolo to resume.`}`);
+  if(!running) { const link=result.editor_url ?? operation.review_url; if(link) ui.line(clean(link)); return; }
+  // Reattach: follow the run until it ends or Ctrl+C, as yolo itself does.
+  if(!(deps.follow ?? (process.stdout.isTTY && process.stdin.isTTY))) return;
+  const followed=await followYolo(bridge,operation,{ui,deps,record:run.record});
+  status.help_centre_generation={...status.help_centre_generation,status:followed.operation.status,result:followed.operation.result,error:followed.operation.error};
+  if(followed.detached) return;
+  try { summarizeYolo(followed.operation,{ui}); } catch(error) { ui.line(error.message); }
+}
+
+const cliNotice = notice => notice.replace('Ask me to turn this off', `Run ${CLI_NAME} telemetry off to stop it`);
+/** wtfm telemetry on|off|status: device-wide, so it needs no project folder. */
 export async function telemetryCommand(action, options, env=process.env) {
   const dev=options.dev ?? developmentMode(env.SUPPORTPAGES_DEV);
   const telemetry=configureTelemetry({configDir:expand(options['config-dir'] ?? defaultConfigDir()),origin:apiOrigin(options['api-url'] ?? env.SUPPORTPAGES_API_URL ?? defaultOrigin(dev),dev),env});
@@ -600,7 +623,7 @@ export async function runCli(options, supplied) {
     }
     if(options.command==='status') {
       const status=await session.status();
-      if(options.json) ui.line(JSON.stringify(status),{literal:true});
+      if(options.json) { if(status.status==='ready') await yoloStatus(await session.bridge(),status,options,deps); ui.line(JSON.stringify(status),{literal:true}); }
       else {
         ui.line(`${clean(root)} — ${status.status==='ready'?'Connected':status.status==='local'?'Local articles':status.status==='setup_required'?'Not set up yet':status.status==='project_required'?'Destination not chosen':clean(status.status.replaceAll('_',' '))}`);
         ui.line(`Environment: ${config.origin}`);
@@ -613,6 +636,7 @@ export async function runCli(options, supplied) {
         if(status.article_run) ui.line(JSON.stringify(status.article_run,null,2),{literal:true});
         if(status.status!=='ready') for(const line of statusHint(status.status,config)) ui.line(line);
       }
+      if(!options.json && status.status==='ready') await yoloStatus(await session.bridge(),status,options,deps);
       return status;
     }
     if(options.command==='doctor') {
@@ -631,18 +655,20 @@ export async function runCli(options, supplied) {
         for(const check of checks) ui.line(`${check.available?'OK':'Missing'}: ${check.name}`);
         for(const client of clientChecks) ui.line(`${client.client}: ${client.registered?'MCP registered':client.available?'MCP not registered':'not installed'}`);
         ui.line(`Connection: ${clean(connectionLabel(result.connection.status))}`);
-        ui.line(`Anonymous usage reporting: ${result.telemetry.enabled?'on':'off'} (${result.telemetry.reason})${result.telemetry.enabled?' · supportpages telemetry off to stop it':''}`);
-        for(const client of clientChecks) if(client.available && !client.registered && !(client.client==='claude' && plugin)) ui.line(`${clientLabel(client.client)} is installed but not connected. Run supportpages setup to connect it.`);
-        if(plugin) ui.line(clientChecks.find(client=>client.client==='claude')?.registered ? 'Claude Code has the SupportPages Writer plugin and a separate registration, so its tools appear twice. Run supportpages remove --agent claude to keep only the plugin.' : 'Claude Code: SupportPages Writer plugin installed.');
-        if(checks.some(check=>!check.available) || !clientChecks.some(client=>client.registered)) ui.line('Run supportpages setup to finish the integration; it downloads Chromium for screenshots if it is missing. Git and your coding agent must be available in your terminal.');
+        ui.line(`Anonymous usage reporting: ${result.telemetry.enabled?'on':'off'} (${result.telemetry.reason})${result.telemetry.enabled?` · ${CLI_NAME} telemetry off to stop it`:''}`);
+        for(const client of clientChecks) if(client.available && !client.registered && !(client.client==='claude' && plugin)) ui.line(`${clientLabel(client.client)} is installed but not connected. Run ${CLI_NAME} setup to connect it.`);
+        if(plugin) ui.line(clientChecks.find(client=>client.client==='claude')?.registered ? `Claude Code has the SupportPages Writer plugin and a separate registration, so its tools appear twice. Run ${CLI_NAME} remove --agent claude to keep only the plugin.` : 'Claude Code: SupportPages Writer plugin installed.');
+        if(checks.some(check=>!check.available) || !clientChecks.some(client=>client.registered)) ui.line(`Run ${CLI_NAME} setup to finish the integration; it downloads Chromium for screenshots if it is missing. Git and your coding agent must be available in your terminal.`);
       }
       return result;
     }
+    if(options.command==='yolo') return await runYolo({session,config,options,deps,root,helpers:{ensureLogin,chooseHelpCentre,getStartedChoices,account,authCommand,
+      saveProfile:(workspace,current)=>privateJson(profileFile(current.configDir,workspace),{version:1,workspace,origin:current.origin,dev:current.dev})}});
     if(options.command==='publish') {
       ui.intro?.(`SupportPages Writer · Publish${config.dev?' · Development':''}`);
       const initial=await session.bridge();
       const destination=await initial.destination();
-      if(destination==='none') fail('project_required','Run supportpages init to set up this folder first.');
+      if(destination==='none') fail('project_required',`Run ${CLI_NAME} init to set up this folder first.`);
       const articles=await initial.localArticles();
       if(!articles.length) {
         if(destination==='hosted') { ui.ok('Every saved article in this folder is already on SupportPages.io.'); return session.status(); }
@@ -660,7 +686,7 @@ export async function runCli(options, supplied) {
         await ensureLogin(session,deps,{mode});
         const signedIn=await session.bridge();
         const status=await session.status();
-        if(status.status==='connection_error') fail('connection_error', status.error?.message ?? 'SupportPages.io could not be reached. Check your connection and retry supportpages publish.');
+        if(status.status==='connection_error') fail('connection_error', status.error?.message ?? `SupportPages.io could not be reached. Check your connection and retry ${CLI_NAME} publish.`);
         ui.step?.(2,'Choose your help centre',total);
         await chooseHelpCentre(session,signedIn,deps,{draft:{writingStyle:local?.writing_style}});
         await privateJson(profileFile(config.configDir,root),{version:1,workspace:root,origin:config.origin,dev:config.dev});
@@ -668,13 +694,13 @@ export async function runCli(options, supplied) {
       ui.step?.(total,'Upload your articles',total);
       const bridge=await session.bridge();
       const verified=await session.status();
-      if(verified.status!=='ready') fail('connection_error','The help centre connection could not be verified. Run supportpages status, then retry supportpages publish.');
+      if(verified.status!=='ready') fail('connection_error',`The help centre connection could not be verified. Run ${CLI_NAME} status, then retry ${CLI_NAME} publish.`);
       await bridge.sync();
       const chosen=await ui.multiselect('Which articles should be uploaded as drafts?',articles.map(item=>({value:item.slug,label:clean(item.title)})),articles.map(item=>item.slug));
       const result=await bridge.uploadLocalArticles(chosen,event=>{
         if(event.error) {
           ui.line(`${clean(event.title)}: ${event.error.message}`);
-          if(event.error.code==='plan_limit') ui.line('The remaining articles were not uploaded. Free up capacity or upgrade, then run supportpages publish again.');
+          if(event.error.code==='plan_limit') ui.line(`The remaining articles were not uploaded. Free up capacity or upgrade, then run ${CLI_NAME} publish again.`);
         } else if(event.editor_url) ui.ok(`${clean(event.title)} · ${clean(event.editor_url)}`);
         else ui.info?.(`Uploading ${clean(event.title)}…`);
       });
@@ -695,7 +721,7 @@ export async function runCli(options, supplied) {
     }
     if(['analyse','write'].includes(options.command)) {
       const status = await session.status();
-      if(!['ready','local'].includes(status.status)) fail(status.status==='setup_required'?'setup_required':'authentication_required','Run supportpages init to set up this project first.');
+      if(!['ready','local'].includes(status.status)) fail(status.status==='setup_required'?'setup_required':'authentication_required',`Run ${CLI_NAME} init to set up this project first.`);
       ui.intro?.(`SupportPages Writer · ${options.command}${config.dev?' · Development':''}`);
       if(options.command === 'write') {
         const bridge=await session.bridge();
@@ -718,7 +744,7 @@ export async function runCli(options, supplied) {
       ui.intro?.(`SupportPages Writer · This project${config.dev?' · Development':''}`);
       const bridge = await session.bridge();
       const destination = await bridge.destination();
-      if (destination === 'none') fail('project_required', 'Run supportpages init to set up this project before configuring it.');
+      if (destination === 'none') fail('project_required', `Run ${CLI_NAME} init to set up this project before configuring it.`);
       const local = destination === 'local' ? await bridge.local() : undefined;
       // Project settings only: the computer's agents live in setup, and a help
       // centre's writing style and the account's preferences are asked for by init
@@ -764,7 +790,7 @@ export async function runCli(options, supplied) {
     let integration;
     if(!clients.length) {
       ui.line('This computer is not set up for SupportPages Writer yet.');
-      if(!await ui.confirm('Set it up now?',true)) throw new Cancelled('Setup cancelled. Run supportpages setup when you are ready, then rerun supportpages init.');
+      if(!await ui.confirm('Set it up now?',true)) throw new Cancelled(`Setup cancelled. Run ${CLI_NAME} setup when you are ready, then rerun ${CLI_NAME} init.`);
       const installed=await computerSetup(config,options,deps,skillsDir,session);
       integration=installed.integration; skillsDir=integration.skillsDir;
     } else {
@@ -773,7 +799,7 @@ export async function runCli(options, supplied) {
     }
     session.options.skillsDir=skillsDir;
     const checks=await generationChecks(skillsDir,run);
-    if(checks.some(check=>!check.available)) fail('missing_dependency','Article rendering is not ready. Run supportpages doctor, fix the reported prerequisites, then rerun supportpages init.');
+    if(checks.some(check=>!check.available)) fail('missing_dependency',`Article rendering is not ready. Run ${CLI_NAME} doctor, fix the reported prerequisites, then rerun ${CLI_NAME} init.`);
 
     ui.step?.(1,'Where articles go',4);
     let hosted=Boolean(savedBinding || options.project);
@@ -783,7 +809,7 @@ export async function runCli(options, supplied) {
       if(ui.note) ui.note(message,'Local articles'); else ui.line(message);
       hosted=!await ui.confirm('Keep saving articles in this project?',true);
       if(!hosted) {
-        // Keeping the setup asks nothing: supportpages configure changes its settings.
+        // Keeping the setup asks nothing: wtfm configure changes its settings.
         result=await readyLocally(session,config,integration,ui,run,options,deps,savedLocal);
         await privateJson(profileFile(config.configDir,root),{version:1,workspace:root,origin:config.origin,dev:config.dev});
         return result;
@@ -810,7 +836,7 @@ export async function runCli(options, supplied) {
     if(!await account(session)) await ensureLogin(session,deps);
     const bridge=await session.bridge();
     const status=await session.status();
-    if(status.status==='connection_error') fail('connection_error', status.error?.message ?? 'SupportPages.io could not be reached. Check your connection and retry supportpages init.');
+    if(status.status==='connection_error') fail('connection_error', status.error?.message ?? `SupportPages.io could not be reached. Check your connection and retry ${CLI_NAME} init.`);
     if(savedBinding && status.status!=='ready') {
       const unavailable=status.status==='project_unavailable';
       const message=unavailable

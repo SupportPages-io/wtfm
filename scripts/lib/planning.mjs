@@ -7,6 +7,7 @@ import { runAgent, openAgent } from './agent-runner.mjs';
 import { ensureWriterAvailable } from './writer-recovery.mjs';
 import { Cancelled } from './terminal.mjs';
 import { availableAgents, readAgentSettings, executionSettings, modelDescription } from './agent-settings.mjs';
+import { CLI_NAME } from './brand.mjs';
 
 const clean = value => String(value).replace(/[\p{Cc}\p{Cf}]/gu, '');
 const label = agent => agent === 'claude' ? 'Claude Code' : 'Codex';
@@ -19,7 +20,7 @@ export class Planning {
     this.bridge = await this.session.bridge();
     this.store = new LocalSetup(this.bridge.ws, this.bridge.stateRoot);
     this.destination = await this.bridge.destination();
-    if (this.destination === 'none') fail('project_required', 'Run supportpages init to set up this folder first.');
+    if (this.destination === 'none') fail('project_required', `Run ${CLI_NAME} init to set up this folder first.`);
     this.projectId = this.destination === 'hosted' ? (await this.bridge.binding()).project_id : undefined;
     return this;
   }
@@ -31,7 +32,7 @@ export class Planning {
     const saved = await readAgentSettings(this.bridge);
     const available = await availableAgents(this.session, this.deps, this.clients);
     const preferred = this.options.agent ?? saved.agent;
-    if (this.options.agent && !available.includes(this.options.agent)) fail('agent_unavailable', 'The selected coding agent is not installed and connected. Run supportpages init.');
+    if (this.options.agent && !available.includes(this.options.agent)) fail('agent_unavailable', `The selected coding agent is not installed and connected. Run ${CLI_NAME} init.`);
     this.agent = available.includes(preferred) ? preferred : available.length === 1 ? available[0] : await this.ui.choose('Which agent should analyse and plan this project?', available.map(value => ({ value, label: label(value) })));
     await this.bridge.ws.writeJson(settingsFile, { ...saved, agent: this.agent });
     return this.agent;
@@ -44,7 +45,7 @@ export class Planning {
   async analysisAgent() {
     const saved = await readAgentSettings(this.bridge);
     const connected = await availableAgents(this.session, this.deps, this.clients);
-    if (this.options.agent && !connected.includes(this.options.agent)) fail('agent_unavailable', 'The selected coding agent is not installed and connected. Run supportpages init.');
+    if (this.options.agent && !connected.includes(this.options.agent)) fail('agent_unavailable', `The selected coding agent is not installed and connected. Run ${CLI_NAME} init.`);
     const available = this.options.agent ? [this.options.agent] : connected;
     const models = await Promise.all(available.map(async agent => modelDescription(agent, await executionSettings(this.bridge, agent))));
     this.ui.note?.(`SupportPages Writer reads this project once to map its screens, styles and branding, and writes a short product summary. Every article starts from it.\nIt runs in your coding agent with your existing account and takes about 5 minutes.\n\n${models.join('\n')}`, 'Project analysis');
@@ -56,7 +57,7 @@ export class Planning {
       const ordered = [...available].sort((a, b) => (b === 'claude') - (a === 'claude'));
       agent = await this.ui.choose('Run the analysis now?', [
         ...ordered.map(value => ({ value, label: `Yes, with ${label(value)}`, ...(value === 'claude' ? { hint: 'Recommended' } : {}) })),
-        { value: 'later', label: 'Later', hint: 'Run supportpages analyse when you are ready' },
+        { value: 'later', label: 'Later', hint: `Run ${CLI_NAME} analyse when you are ready` },
       ], Math.max(0, ordered.indexOf(saved.agent)));
       if (agent === 'later') return;
     }
@@ -83,7 +84,7 @@ export class Planning {
     if (previous.status === 'ready' && await ws.exists(`${previous.output_dir}/file_tree.txt`)) await ws.write(`${directory}/file_tree.txt`, await ws.read(`${previous.output_dir}/file_tree.txt`));
     let instructions;
     try { instructions = await readFile(path.join(this.session.options.skillsDir, skill, 'SKILL.md'), 'utf8'); }
-    catch { fail('missing_dependency', `The ${skill} skill is missing. Run supportpages init to repair the installation.`); }
+    catch { fail('missing_dependency', `The ${skill} skill is missing. Run ${CLI_NAME} init to repair the installation.`); }
     const receipt = { version: 1, skill, agent, workspace: ws.root, output_dir: directory, status: 'running', started_at: new Date().toISOString() };
     this.activeTask = receipt;
     await ws.writeJson(`${this.bridge.stateRoot}/setup/task.json`, receipt);
@@ -179,7 +180,7 @@ export class Planning {
           if (existing.status === 'ready' && !refresh) {
             // Say which analysis is in use and how to redo it, so a stale cache is
             // never a silent surprise.
-            this.ui.line(`Using the project analysis from ${clean(existing.completed_at?.slice(0, 10) ?? 'an earlier run')}. Rerun with supportpages ${this.options.command === 'init' ? 'init' : 'analyse'} --refresh to redo it.`);
+            this.ui.line(`Using the project analysis from ${clean(existing.completed_at?.slice(0, 10) ?? 'an earlier run')}. Rerun with ${CLI_NAME} ${this.options.command === 'init' ? 'init' : 'analyse'} --refresh to redo it.`);
             result = existing;
             return;
           }
@@ -211,9 +212,9 @@ export class Planning {
               else await rm(await ws.resolve(file), { force: true });
             }
             await this.failedTask(error);
-            if (task && error.code === 'missing_artifact') fail('invalid_analysis', `Project analysis did not produce all required files: ${publicError(error).message}. The summary and agent log are saved in ${task.directory}. Rerun supportpages init to recover a completed nested-application analysis or try again.`, { output_dir: task.directory });
+            if (task && error.code === 'missing_artifact') fail('invalid_analysis', `Project analysis did not produce all required files: ${publicError(error).message}. The summary and agent log are saved in ${task.directory}. Rerun ${CLI_NAME} init to recover a completed nested-application analysis or try again.`, { output_dir: task.directory });
             if (error instanceof Cancelled || error.code) throw error;
-            fail('invalid_analysis', 'The analysis is incomplete or invalid. Run supportpages analyse --refresh to retry; the previous valid cache was kept.');
+            fail('invalid_analysis', `The analysis is incomplete or invalid. Run ${CLI_NAME} analyse --refresh to retry; the previous valid cache was kept.`);
           }
         });
         break;
@@ -224,8 +225,8 @@ export class Planning {
     }
     if (!result) {
       this.ui.outro?.(previousReady
-        ? 'Refresh deferred. Your previous analysis is still ready. Run supportpages analyse --refresh when you want to update it.'
-        : 'Analysis deferred. Your project settings are saved.\nRun supportpages analyse when you are ready; articles need it first.');
+        ? `Refresh deferred. Your previous analysis is still ready. Run ${CLI_NAME} analyse --refresh when you want to update it.`
+        : `Analysis deferred. Your project settings are saved.\nRun ${CLI_NAME} analyse when you are ready; articles need it first.`);
       return;
     }
     this.ui.note?.(`${clean(result.overview)}\n\nApplication: ${clean(result.codebase_dir)}\nApp type: ${clean(result.app_type)}\nFramework: ${clean(result.framework)}`, 'Project analysis');

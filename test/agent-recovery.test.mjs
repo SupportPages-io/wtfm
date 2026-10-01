@@ -63,7 +63,7 @@ for (const scenario of scenarios) {
     const f = await scenarioFixture(t, scenario), call = await mcp(t, f.bridge);
     for (const [tool, args] of [['status', {}], ['list_articles', {}], ['get_capabilities', { action: 'create_article' }], ['create_article', { title: 'Invite', prefer_background: true }], ['sync', {}], ['upload_draft', { slug: 'invite' }]]) {
       const response = await call(tool, args);
-      const text = JSON.stringify(response.structuredContent).replace(/supportpages analyse[^"]*/g, '');
+      const text = JSON.stringify(response.structuredContent).replace(/(?:wtfm|supportpages) analyse[^"]*/g, '');
       assert.doesNotMatch(text, terminal, `${tool} in ${scenario}`);
     }
   });

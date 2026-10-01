@@ -5,6 +5,7 @@ import { installManagedWriter } from './managed-writer.mjs';
 import { withCodexConfig } from './codex-config.mjs';
 import { installCodexSkill } from './codex-skill.mjs';
 import { askFirstTools } from './claude-permissions.mjs';
+import { CLI_NAME } from './brand.mjs';
 
 export async function installCodexIntegration({ home = os.homedir(), env = process.env, name, configDir, backup, ui, codexConfig = withCodexConfig, registration, announcePermission = true }) {
   if (typeof name !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,79}$/.test(name)) throw Error('Invalid SupportPages.io connection name.');
@@ -21,7 +22,7 @@ export async function installCodexIntegration({ home = os.homedir(), env = proce
   const permission = await codexConfig({ env: { ...env, CODEX_HOME: config }, cwd: config }, async request => {
     const state = await request('config/read', { includeLayers: true });
     const user = state.layers?.find(layer => layer.name?.type === 'user' && !layer.name.profile && path.resolve(layer.name.file) === canonical);
-    if (!user?.version) throw Error('Codex did not return a version for its user settings. Update Codex and rerun supportpages init.');
+    if (!user?.version) throw Error(`Codex did not return a version for its user settings. Update Codex and rerun ${CLI_NAME} init.`);
     const server = state.config?.mcp_servers?.[name];
     if (!server) throw Error('Register the SupportPages.io Codex connection before installing its publishing permission.');
     const edits = [];

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createTerminal, Cancelled } from './lib/terminal.mjs';
 import { runInstaller } from './lib/install.mjs';
+import { CLI_NAME } from './lib/brand.mjs';
 
 const help = `SupportPages Writer — guided local setup
 
@@ -26,8 +27,8 @@ client globally. Optionally connect a repository through browser setup. Run it f
   --yes                  Noninteractive; requires --client
   -h, --help             Show this help without installing anything
 
-Installation does not sign you in. Afterwards run supportpages setup once on this
-computer, then supportpages init inside each project folder, or ask your coding
+Installation does not sign you in. Afterwards run ${CLI_NAME} setup once on this
+computer, then ${CLI_NAME} init inside each project folder, or ask your coding
 client to initialize SupportPages.io. Articles can be saved in the project without
 an account; signing in (browser approval, private credentials) is needed only to
 host them on a help centre.

@@ -6,6 +6,7 @@ import { createTerminal } from './lib/terminal.mjs';
 import { apiOrigin, ApiClient, defaultOrigin } from '../dist/api.js';
 import { credentialLocation, defaultConfigDir } from '../dist/session.js';
 import { saveTokenFile } from '../dist/credentials.js';
+import { CLI_NAME } from './lib/brand.mjs';
 
 /** Manual fallback: paste a token created in the web app and save it as this device's credential. */
 export async function authenticate(options, { ui, fetcher = fetch } = {}) {
@@ -19,7 +20,7 @@ export async function authenticate(options, { ui, fetcher = fetch } = {}) {
   if (!account || typeof account.id !== 'string' || !/^[1-9][0-9]*$/.test(account.id) || typeof account.email !== 'string') throw new Error('The API returned an invalid account. No credential was saved.');
   const { filename } = credentialLocation(origin, path.resolve(options['config-dir'] ?? defaultConfigDir()));
   await saveTokenFile(filename, origin, token, { id: account.id, email: account.email });
-  ui.line(`Token verified and saved privately for ${account.email}. Run supportpages init inside a project folder to connect it to a help centre.`);
+  ui.line(`Token verified and saved privately for ${account.email}. Run ${CLI_NAME} init inside a project folder to connect it to a help centre.`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {

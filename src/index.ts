@@ -18,7 +18,7 @@ try {
   if (values.help) {
     process.stdout.write('Usage: supportpages-mcp [--workspace /absolute/product/path] [--dev] [--api-url ORIGIN] [--skills-dir /path/to/engine] [--token-file /private/credential.json] [--doctor]\nUse --dev (or SUPPORTPAGES_DEV=true) for https://app.lvh.me:3443. Call supportpages_init in your agent to connect this project. Without --doctor, starts an MCP stdio server.\n');
   } else {
-    // Coding clients launch Node directly, without the supportpages shell launcher.
+    // Coding clients launch Node directly, without the wtfm/supportpages shell launchers.
     process.env.PATH = path.dirname(process.execPath) + path.delimiter + (process.env.PATH ?? '');
     const dev = values.dev ?? developmentMode(process.env.SUPPORTPAGES_DEV);
     const origin = apiOrigin(values['api-url'] ?? process.env.SUPPORTPAGES_API_URL ?? defaultOrigin(dev), dev);

@@ -7,20 +7,22 @@ import { publicError } from '../../dist/errors.js';
 import { runCli, telemetryCommand } from './cli.mjs';
 import { reportError } from '../../dist/telemetry.js';
 import { updateCli } from './update.mjs';
+import { CLI_NAME, LEGACY_CLI_NAME } from './brand.mjs';
 
 let installRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 if(process.env.SUPPORTPAGES_CLI_HOME) {
   const stableRoot=path.join(process.env.SUPPORTPAGES_CLI_HOME,'mcp');
   try {if(await realpath(stableRoot)===await realpath(installRoot)) installRoot=stableRoot;} catch { /* Ignore stale launcher environment. */ }
 }
-const help=`SupportPages Writer — local article generation
+const help=`WTFM (Write the F***ing Manual) — local article generation
 
-Usage: supportpages <command> [options]
+Usage: ${CLI_NAME} <command> [options]
 
   setup       One-time setup for this computer: coding agent, renderer and account
   init        Set up this project: where its articles go, model and project detection
   uninit      Forget this folder's setup and environment; archive recovery files
   publish     Host this project's locally saved articles on a SupportPages.io help centre
+  yolo        Write the whole manual on SupportPages.io (account required; drafts only)
   analyse     Complete required project analysis (--refresh to rerun)
   status      Show the connection and last-reported article progress
   configure   Choose coding agent, model, effort, writing style and preferences
@@ -33,18 +35,23 @@ Usage: supportpages <command> [options]
   remove      Remove local coding-agent integrations; keep projects and articles
   mcp         Run the MCP server on stdio (for MCP client configuration)
 
-Run supportpages setup once on this computer and supportpages init inside each
+Run ${CLI_NAME} setup once on this computer and ${CLI_NAME} init inside each
 project, then open Claude Code or Codex there and ask for an article. Articles can be saved in the project as Markdown and screenshots with no
 account, or published to a SupportPages.io help centre. Your repository stays
 with your coding agent.
 
-Permission consent: supportpages login --scopes manage,generate,publish
+Or run ${CLI_NAME} yolo to have SupportPages.io write the whole manual as drafts
+on its servers; it needs an account and access to your repository.
+
+Permission consent: ${CLI_NAME} login --scopes manage,generate,publish
 
 Options: --workspace PATH, --dev, --api-url ORIGIN, --config-dir PATH,
          --skills-dir PATH, --project ID (init), --agent claude|codex,
          --refresh (init, analyse), --app-type TYPE (init, analyse),
-         --skills-only (remove), --yes (remove/uninit),
+         --skills-only (remove), --yes (remove/uninit/yolo),
          --json (status/doctor/sync), --help, --version
+
+${LEGACY_CLI_NAME} is an alias for ${CLI_NAME}; both run the same command.
 `;
 try {
   let parsed;
@@ -67,12 +74,12 @@ try {
       if(positionals.length!==1 || Object.keys(values).length) throw Object.assign(new Error(),{usage:true});
       await updateCli({installRoot,ui:createTerminal()});
     } else {
-      if((values.scopes !== undefined && (command !== 'login' || !/^(publish|manage|generate)(,(publish|manage|generate))*$/.test(values.scopes))) || (command === 'remove' && values.workspace !== undefined) || (values.yes && !['remove','uninit'].includes(command)) || (values['skills-only'] && command!=='remove') || (values.project !== undefined && (command!=='init' || !/^[1-9][0-9]*$/.test(values.project))) || positionals.length!==1 || !['setup','init','uninit','login','logout','status','configure','doctor','analyse','sections','recommend','write','publish','remove','sync'].includes(command) || (values.json && !['status','doctor','sync'].includes(command)) || (values.agent && !['claude','codex'].includes(values.agent)) || (values.refresh && !['init','analyse','sections','recommend'].includes(command)) || (values['app-type'] && (!['init','analyse'].includes(command) || !['web','terminal','mobile','desktop','win32','macos','game'].includes(values['app-type'])))) throw Object.assign(new Error(),{usage:true});
-      if(!['status','doctor','sync','logout'].includes(command) && !(['remove','uninit'].includes(command) && values.yes) && (!process.stdin.isTTY || !process.stdout.isTTY)) {process.stderr.write('Run supportpages '+command+' in an interactive terminal. Use status --json or doctor --json for automation.\n');process.exitCode=2;}
+      if((values.scopes !== undefined && (command !== 'login' || !/^(publish|manage|generate)(,(publish|manage|generate))*$/.test(values.scopes))) || (command === 'remove' && values.workspace !== undefined) || (values.yes && !['remove','uninit','yolo'].includes(command)) || (values['skills-only'] && command!=='remove') || (values.project !== undefined && (command!=='init' || !/^[1-9][0-9]*$/.test(values.project))) || positionals.length!==1 || !['setup','init','uninit','login','logout','status','configure','doctor','analyse','sections','recommend','write','publish','yolo','remove','sync'].includes(command) || (values.json && !['status','doctor','sync'].includes(command)) || (values.agent && !['claude','codex'].includes(values.agent)) || (values.refresh && !['init','analyse','sections','recommend'].includes(command)) || (values['app-type'] && (!['init','analyse'].includes(command) || !['web','terminal','mobile','desktop','win32','macos','game'].includes(values['app-type'])))) throw Object.assign(new Error(),{usage:true});
+      if(!['status','doctor','sync','logout'].includes(command) && !(['remove','uninit'].includes(command) && values.yes) && (!process.stdin.isTTY || !process.stdout.isTTY)) {process.stderr.write(`Run ${CLI_NAME} `+command+' in an interactive terminal. Use status --json or doctor --json for automation.\n');process.exitCode=2;}
       else await runCli({...values,command},{installRoot,ui:createTerminal()});
     }
   }
 } catch(error) {
-  if(error.usage) {process.stderr.write(emphasizeCommands('Invalid command or options. Run supportpages --help.\n',process.stderr));process.exitCode=2;}
+  if(error.usage) {process.stderr.write(emphasizeCommands(`Invalid command or options. Run ${CLI_NAME} --help.\n`,process.stderr));process.exitCode=2;}
   else {if(!(error instanceof Cancelled)) reportError(error);process.stderr.write(emphasizeCommands((error instanceof Cancelled ? error.message : publicError(error).message)+'\n',process.stderr));process.exitCode=error instanceof Cancelled || error.code==='authorization_cancelled' ? 130:1;}
 }

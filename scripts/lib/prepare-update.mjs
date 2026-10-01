@@ -1,6 +1,6 @@
 import path from 'node:path';
 import os from 'node:os';
-import { readFile, realpath } from 'node:fs/promises';
+import { chmod, copyFile, lstat, readFile, realpath, rename, rm } from 'node:fs/promises';
 import { ARTICLE_SKILLS, installTraceHook } from './article-skills.mjs';
 import { command, exists, privateJson } from './install.mjs';
 import { ensureRenderer, rendererReady } from './renderer.mjs';
@@ -41,6 +41,35 @@ async function migrateTraceHook(root, { home, env }) {
   ] });
 }
 
+const MANAGED_LAUNCHER = '# SupportPages managed launcher';
+async function managedLauncher(file) {
+  try {
+    if (!(await lstat(file)).isFile()) return false;
+    return (await readFile(file, 'utf8')).split('\n')[1] === MANAGED_LAUNCHER;
+  } catch { return false; }
+}
+
+/** Updates run the previous release's installer, which only writes the
+ * `supportpages` launcher. Add the identical `wtfm` launcher beside it so an
+ * existing installation gains the new command name. Best effort: anything
+ * unexpected (no receipt, an unrelated wtfm) leaves the installation as it is. */
+export async function ensureCommandAlias(root) {
+  try {
+    const receipt = JSON.parse(await readFile(path.join(root, 'install.json'), 'utf8'));
+    if (typeof receipt.bin_dir !== 'string' || !path.isAbsolute(receipt.bin_dir)) return false;
+    const existing = path.join(receipt.bin_dir, 'supportpages'), alias = path.join(receipt.bin_dir, 'wtfm');
+    if (!await managedLauncher(existing)) return false;
+    try { await lstat(alias); return false; } catch (error) { if (error.code !== 'ENOENT') return false; }
+    const temporary = path.join(receipt.bin_dir, `.wtfm.${process.pid}.${Date.now()}`);
+    try {
+      await copyFile(existing, temporary);
+      await chmod(temporary, 0o755);
+      await rename(temporary, alias);
+    } finally { await rm(temporary, { force: true }); }
+    return true;
+  } catch { return false; }
+}
+
 /** Prepare the new release's renderer and hook before promoting it, then
  * refresh managed writer and coordination instructions. */
 export async function prepareUpdate(previous, next, { run = command, env = process.env, home = os.homedir() } = {}) {
@@ -52,4 +81,5 @@ export async function prepareUpdate(previous, next, { run = command, env = proce
   if (await exists(engine)) await migrateTraceHook(path.resolve(next, '../../..'), { home, env });
   await refreshWriters({ home, env });
   await refreshCodexSkill({ home, env });
+  await ensureCommandAlias(path.resolve(next, '../../..'));
 }

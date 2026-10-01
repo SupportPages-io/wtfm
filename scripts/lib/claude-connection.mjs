@@ -2,6 +2,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { lstat, readFile } from 'node:fs/promises';
 import { backup, privateJson } from './install.mjs';
+import { CLI_NAME } from './brand.mjs';
 
 /** Match Claude's /mcp project toggle without removing global registrations. */
 export async function selectClaudeConnection({ workspace, dev, configDir, home = os.homedir(), env = process.env }) {
@@ -26,7 +27,7 @@ export async function selectClaudeConnection({ workspace, dev, configDir, home =
   await backup(filename, path.join(configDir, 'backups'));
   let current;
   try { current = await readFile(filename, 'utf8'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
-  if (current !== contents) throw Error('Claude configuration changed. Rerun supportpages init to retry.');
+  if (current !== contents) throw Error(`Claude configuration changed. Rerun ${CLI_NAME} init to retry.`);
   await privateJson(filename, { ...config, projects: { ...config.projects, [root]: { ...project, disabledMcpServers: disabled } } });
   return true;
 }
