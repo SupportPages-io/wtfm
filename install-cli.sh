@@ -267,21 +267,27 @@ fi
 # A fresh install ends on a clean screen: the logo, then how to get started.
 # Piped or plain output (and NO_COLOR) gets the same text without clearing or colour.
 sp_screen=false
-sp_bold=""; sp_cmd=""; sp_dim=""; sp_reset=""
+sp_bold=""; sp_cmd=""; sp_dim=""; sp_green=""; sp_reset=""
 if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ]; then
   sp_screen=true
-  if [ -z "${NO_COLOR+x}" ]; then sp_bold=$'\033[1m'; sp_cmd=$'\033[1;36m'; sp_dim=$'\033[90m'; sp_reset=$'\033[0m'; fi
+  if [ -z "${NO_COLOR+x}" ]; then sp_bold=$'\033[1m'; sp_cmd=$'\033[1;36m'; sp_dim=$'\033[90m'; sp_green=$'\033[32m'; sp_reset=$'\033[0m'; fi
 fi
 if [ "$sp_screen" = true ]; then
   printf '\033[H\033[2J'
-  if [ "$(tput cols 2>/dev/null || echo 80)" -gt 59 ]; then
-    # figlet "Pagga" (see scripts/lib/terminal.mjs); the ░ texture and ".io" are dimmed.
+  if [ "$(tput cols 2>/dev/null || echo 80)" -gt 54 ]; then
+    # "Write the F***ing Manual" in figlet "Pagga" (see scripts/lib/terminal.mjs).
+    # Rows are "green part|rest": F***ing is green, the ░ texture is dimmed.
     for sp_row in \
-      '░█▀▀░█░█░█▀█░█▀█░█▀█░█▀▄░▀█▀░█▀█░█▀█░█▀▀░█▀▀░█▀▀|░░░░▀█▀░█▀█' \
-      '░▀▀█░█░█░█▀▀░█▀▀░█░█░█▀▄░░█░░█▀▀░█▀█░█░█░█▀▀░▀▀█|░░░░░█░░█░█' \
-      '░▀▀▀░▀▀▀░▀░░░▀░░░▀▀▀░▀░▀░░▀░░▀░░░▀░▀░▀▀▀░▀▀▀░▀▀▀|░▀░░▀▀▀░▀▀▀'; do
-      sp_mark="${sp_row%%|*}"
-      printf '%s%s%s%s\n' "${sp_mark//░/${sp_dim}░${sp_reset}}" "$sp_dim" "${sp_row#*|}" "$sp_reset"
+      '|░█░█░█▀▄░▀█▀░▀█▀░█▀▀░░░▀█▀░█░█░█▀▀░░░░░░░░░░░░░░░░░░░░' \
+      '|░█▄█░█▀▄░░█░░░█░░█▀▀░░░░█░░█▀█░█▀▀░░░░░░░░░░░░░░░░░░░░' \
+      '|░▀░▀░▀░▀░▀▀▀░░▀░░▀▀▀░░░░▀░░▀░▀░▀▀▀░░░░░░░░░░░░░░░░░░░░' \
+      '|░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░' \
+      '░█▀▀░▄░▄░▄░▄░▄░▄░▀█▀░█▀█░█▀▀|░░░█▄█░█▀█░█▀█░█░█░█▀█░█░░' \
+      '░█▀▀░▄█▄░▄█▄░▄█▄░░█░░█░█░█░█|░░░█░█░█▀█░█░█░█░█░█▀█░█░░' \
+      '░▀░░░▄▀▄░▄▀▄░▄▀▄░▀▀▀░▀░▀░▀▀▀|░░░▀░▀░▀░▀░▀░▀░▀▀▀░▀░▀░▀▀▀'; do
+      sp_accent="${sp_row%%|*}"; sp_rest="${sp_row#*|}"
+      if [ -n "$sp_accent" ]; then printf '%s%s%s' "$sp_green" "${sp_accent//░/${sp_dim}░${sp_green}}" "$sp_reset"; fi
+      printf '%s%s\n' "${sp_rest//░/${sp_dim}░${sp_reset}}" "$sp_reset"
     done
     printf '\n'
   fi

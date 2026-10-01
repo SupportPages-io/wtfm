@@ -245,7 +245,8 @@ finally:
 test('the setup banner fits a 60-column terminal and stays off narrow or plain screens', t => {
   const art = logo();
   assert.ok(art.split('\n').every(row => Array.from(row).length < 60));
-  assert.equal(logo({ columns: 59 }), undefined);
+  assert.equal(logo({ columns: 54 }), undefined);
+  assert.ok(logo({ columns: 55 }));
   assert.equal(stripVTControlCharacters(logo({ color: true })), art);
   const wide = terminal(t);
   wide.ui.intro('SupportPages Writer · Set up this computer', { banner: true });

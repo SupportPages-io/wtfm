@@ -41,23 +41,31 @@ const wrapWords = (text, width) => {
   return lines;
 };
 
-// The supportpages.io wordmark in figlet's "Pagga" font. Generated once with
-// figlet (see dev/figlet-fonts.mjs); the CLI does not depend on it.
+// "Write the F***ing Manual" in figlet's "Pagga" font, over two lines so it
+// fits an 80-column terminal. Generated once with figlet (see
+// dev/figlet-fonts.mjs); the CLI does not depend on it.
 const logoRows = [
-  '░█▀▀░█░█░█▀█░█▀█░█▀█░█▀▄░▀█▀░█▀█░█▀█░█▀▀░█▀▀░█▀▀░░░░▀█▀░█▀█',
-  '░▀▀█░█░█░█▀▀░█▀▀░█░█░█▀▄░░█░░█▀▀░█▀█░█░█░█▀▀░▀▀█░░░░░█░░█░█',
-  '░▀▀▀░▀▀▀░▀░░░▀░░░▀▀▀░▀░▀░░▀░░▀░░░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀░░▀▀▀░▀▀▀',
+  '░█░█░█▀▄░▀█▀░▀█▀░█▀▀░░░▀█▀░█░█░█▀▀░░░░░░░░░░░░░░░░░░░░',
+  '░█▄█░█▀▄░░█░░░█░░█▀▀░░░░█░░█▀█░█▀▀░░░░░░░░░░░░░░░░░░░░',
+  '░▀░▀░▀░▀░▀▀▀░░▀░░▀▀▀░░░░▀░░▀░▀░▀▀▀░░░░░░░░░░░░░░░░░░░░',
+  '░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░',
+  '░█▀▀░▄░▄░▄░▄░▄░▄░▀█▀░█▀█░█▀▀░░░█▄█░█▀█░█▀█░█░█░█▀█░█░░',
+  '░█▀▀░▄█▄░▄█▄░▄█▄░░█░░█░█░█░█░░░█░█░█▀█░█░█░█░█░█▀█░█░░',
+  '░▀░░░▄▀▄░▄▀▄░▄▀▄░▀▀▀░▀░▀░▀▀▀░░░▀░▀░▀░▀░▀░▀░▀▀▀░▀░▀░▀▀▀',
 ];
-const logoWidth = 59;
-// ".io" starts here; it and the ░ texture are dimmed like the brand's grey.
-const suffixColumn = 48;
+const logoWidth = 54;
+// "F***ing" (rows 4-6, before this column) is green, as on the landing page;
+// the ░ texture is dimmed.
+const accentRow = 4, accentColumn = 28;
 
 /** The logo when it fits unwrapped, otherwise undefined. */
 export function logo({ columns = 80, color = false } = {}) {
   if (columns <= logoWidth) return undefined;
   if (!color) return logoRows.join('\n');
-  return logoRows.map(row => Array.from(row, (char, column) =>
-    char === '░' || column >= suffixColumn ? `\x1b[90m${char}\x1b[39m` : char).join('').replace(/\x1b\[39m\x1b\[90m/g, '')).join('\n');
+  const paint = (char, row, column) =>
+    char === '░' ? `\x1b[90m${char}\x1b[39m` : row >= accentRow && column < accentColumn ? `\x1b[32m${char}\x1b[39m` : char;
+  return logoRows.map((row, index) => Array.from(row, (char, column) => paint(char, index, column)).join('')
+    .replace(/\x1b\[39m\x1b\[(90|32)m/g, '\x1b[$1m')).join('\n');
 }
 
 export class Cancelled extends Error {
