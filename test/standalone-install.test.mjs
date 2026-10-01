@@ -228,7 +228,7 @@ test('piped installer works without a controlling terminal and truncated scripts
   await assert.rejects(lstat(f.data),{code:'ENOENT'});
   const complete=spawnSync('bash',args,{input:script,env,encoding:'utf8',detached:true,timeout:10000});
   assert.equal(complete.status,0,complete.stderr);assert.doesNotMatch(complete.stdout,/Add wtfm/);
-  assert.match(complete.stdout,/For this terminal/);assert.match(complete.stdout,/Get started\n\n  1\. Set up this computer, once +(?:wtfm|supportpages) setup\n  2\. Then, in each project folder +(?:wtfm|supportpages) init\n/);assert.match(complete.stdout,/Articles are saved in your project, with no account needed/);assert.doesNotMatch(complete.stdout,/\x1b/);
+  assert.match(complete.stdout,/For this terminal/);assert.match(complete.stdout,/Get started\n\n  1\. Set up this computer, once +(?:wtfm|supportpages) setup\n  2\. Then, in each project folder +(?:wtfm|supportpages) init\n/);assert.match(complete.stdout,/Articles are saved in your project, with no account needed/);assert.match(complete.stdout,/Feeling lucky\?\n\n  Write the whole manual in one go +wtfm yolo\n/);assert.doesNotMatch(complete.stdout,/\x1b/);
 });
 
 test('failed upgrade probes, checksums and concurrent installs retain the active version',async t=>{

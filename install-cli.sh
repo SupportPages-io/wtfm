@@ -300,7 +300,10 @@ printf '  2. Then, in each project folder    %swtfm init%s\n' "$sp_cmd" "$sp_res
 printf '  3. Open Claude Code or Codex in the project and ask for an article:\n'
 printf '     %s"Write an illustrated guide to inviting a teammate."%s\n' "$sp_dim" "$sp_reset"
 printf '\nArticles are saved in your project, with no account needed. Run %swtfm publish%s\n' "$sp_cmd" "$sp_reset"
-printf 'later to host them on a SupportPages.io help centre.\n\n'
+printf 'later to host them on a SupportPages.io help centre.\n'
+printf '\n%sFeeling lucky?%s\n\n' "$sp_bold" "$sp_reset"
+printf '  Write the whole manual in one go    %swtfm yolo%s\n' "$sp_cmd" "$sp_reset"
+printf '  %sRuns on SupportPages.io as drafts; needs an account and repository access.%s\n\n' "$sp_dim" "$sp_reset"
 }
 
 supportpages_install "$@"
