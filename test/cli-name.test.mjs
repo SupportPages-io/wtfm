@@ -20,7 +20,7 @@ test('the command is wtfm, supportpages stays an alias, and both brand modules a
   const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
   assert.equal(pkg.bin.wtfm, 'scripts/cli.mjs');
   assert.equal(pkg.bin.supportpages, 'scripts/cli.mjs');
-  assert.equal(pkg.name, 'wtfm');
+  assert.equal(pkg.name, '@supportpages.io/wtfm');
   // The MCP Registry name is persisted and unchanged.
   assert.equal(pkg.mcpName, 'io.github.supportpages-io/supportpages-writer');
 });
