@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Write the F***ing Manual.</strong><br>
-  Your coding agent writes the user docs. Screenshots included.
+  A plugin for your coding agent that writes the user docs. Screenshots included.
 </p>
 
 <p align="center">
@@ -18,6 +18,7 @@
   <a href="#cli-commands">CLI</a> ·
   <a href="#publish">Publish</a> ·
   <a href="#faq">FAQ</a> ·
+  <a href="https://wtfm.supportpages.io">Docs</a> ·
   <a href="https://supportpages.io/wtfm">Website</a>
 </p>
 
@@ -27,14 +28,14 @@
   <sub>Real output from <a href="https://github.com/plausible/analytics">plausible/analytics</a>, replayed fast. A real run takes a few minutes.</sub>
 </p>
 
-Not API reference, not a README. **Docs for the people who will never read your code:**
-the customer who can't find the export button, the admin inviting their team.
+**WTFM is a plugin for your coding agent that writes your user docs.** Ask
+[Claude Code](https://claude.com/claude-code) or [Codex](https://github.com/openai/codex)
+for a guide and it reads your source, writes the steps in plain language, and shows every
+screen with a screenshot rendered from your real templates and CSS. No running app, no
+manual captures, no account.
 
-WTFM turns [Claude Code](https://claude.com/claude-code) or
-[Codex](https://github.com/openai/codex) into a technical writer for your users. Ask
-for a guide and your agent reads your source, writes the steps in plain language, and
-shows every screen with a screenshot rendered from your real templates and CSS.
-No running app, no manual captures, no account.
+Not API reference, not a README: docs for the people who will never read your code,
+like the customer who can't find the export button, or the admin inviting their team.
 
 > WTFM was formerly SupportPages Writer. The `supportpages` command still works as
 > an alias for `wtfm`, and existing installations, settings and `SUPPORTPAGES_*`
@@ -77,6 +78,9 @@ guide WTFM wrote from that repository's source; the apps were never run.
 | --- | --- | --- |
 | <img src="docs/images/immich.png" alt="Immich albums page, from How to create a new album"> | <img src="docs/images/paperless.png" alt="Paperless-ngx Create new tag dialog, from How to create a tag and apply it to a document"> | <img src="docs/images/maybe.png" alt="Maybe Enter account balance dialog, from How to add a new account"> |
 | How to create a new album | How to create a tag and apply it to a document | How to add a new account |
+
+For a whole help centre, see [WTFM's own docs](https://wtfm.supportpages.io): every
+article and screenshot there was written by WTFM from this repository.
 
 ## Install
 
