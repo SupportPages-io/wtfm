@@ -164,8 +164,10 @@ jobs:
           git commit -q -m "Plugin build for $REF" || { echo "The plugin branch is already up to date"; exit 0; }
           git push origin HEAD:refs/heads/plugin
 
-  # npm and the MCP Registry are published only when their credentials are
-  # configured (NPM_TOKEN secret; PUBLISH_MCP_REGISTRY variable set to true).
+  # npm publishes through trusted publishing: npm trusts this workflow's OIDC
+  # token, so there is no NPM_TOKEN. The trusted publisher on npmjs.com must name
+  # SupportPages-io/wtfm, release.yml and the cli-release environment. The MCP
+  # Registry is published only when PUBLISH_MCP_REGISTRY is set to true.
   npm:
     if: ${{ github.event_name == 'push' || inputs.publish }}
     needs: publish
@@ -182,15 +184,19 @@ jobs:
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+      # Trusted publishing needs npm 11.5.1+; Node 22 ships npm 10.
+      - run: npm install -g npm@11
       - run: npm ci --no-audit --no-fund
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then echo "NPM_TOKEN is not set; skipping npm."; exit 0; fi
-          npm publish --provenance --access public
+          name="$(node -p 'require("./package.json").name')"
+          version="$(node -p 'require("./package.json").version')"
+          if [ "$(npm view "$name@$version" version 2>/dev/null)" = "$version" ]; then
+            echo "$name@$version is already on npm; skipping."; exit 0
+          fi
+          npm publish
       - name: Publish to the MCP Registry
         if: ${{ vars.PUBLISH_MCP_REGISTRY == 'true' }}
         run: |
