@@ -18,7 +18,7 @@
   <a href="#cli-commands">CLI</a> ·
   <a href="#publish">Publish</a> ·
   <a href="#faq">FAQ</a> ·
-  <a href="https://wtfm.supportpages.io">Docs</a> ·
+  <a href="https://help.wtfm.sh/">Docs</a> ·
   <a href="https://supportpages.io/wtfm">Website</a>
 </p>
 
@@ -79,7 +79,7 @@ guide WTFM wrote from that repository's source; the apps were never run.
 | <img src="docs/images/immich.png" alt="Immich albums page, from How to create a new album"> | <img src="docs/images/paperless.png" alt="Paperless-ngx Create new tag dialog, from How to create a tag and apply it to a document"> | <img src="docs/images/maybe.png" alt="Maybe Enter account balance dialog, from How to add a new account"> |
 | How to create a new album | How to create a tag and apply it to a document | How to add a new account |
 
-For a whole help centre, see [WTFM's own docs](https://wtfm.supportpages.io): every
+For a whole help centre, see [WTFM's own docs](https://help.wtfm.sh/): every
 article and screenshot there was written by WTFM from this repository.
 
 ## Install
