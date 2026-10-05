@@ -9,6 +9,7 @@ import { ApiClient, connectionStateRoot } from './api.js';
 import { Runs } from './runs.js';
 import { readCredential, readTokenFile, saveTokenFile, type Account, type Credential } from './credentials.js';
 import { Pairing, type Approval, type Delivery, type PairingRuntime } from './pairing.js';
+import { activeTelemetry } from './telemetry.js';
 import { fail, publicError } from './errors.js';
 import { replaceConnection } from './replace-connection.js';
 import { configureDevelopmentTLS } from './development-tls.js';
@@ -16,6 +17,13 @@ import { openPreview } from './progress.js';
 import { CLI_NAME } from './brand.js';
 
 /** One credential per API origin: signing in covers every help centre the account can access. */
+/** The sign-in request carries the telemetry install id only while reporting
+ * is on (and never in library use or tests, where no telemetry is configured). */
+async function pairingOptions(client: 'SupportPages Writer' | 'SupportPages Writer MCP') {
+  const installId = await activeTelemetry()?.installId();
+  return { client, ...(installId ? { installId } : {}) };
+}
+
 export function credentialLocation(origin: string, configDir: string) {
   const reference = createHash('sha256').update(origin).digest('hex').slice(0, 12);
   return { reference, filename: path.join(configDir, 'credentials', `${reference}.json`) };
@@ -117,7 +125,7 @@ export class Session {
       } catch (error) { if ((error as { code?: string }).code !== 'invalid_credentials') throw error; }
     }
     const pairing = new Pairing(o.origin, o.dev, o.pairingRuntime);
-    const request = await pairing.start(deviceLabel(), { client: 'SupportPages Writer' });
+    const request = await pairing.start(deviceLabel(), await pairingOptions('SupportPages Writer'));
     if (this.closed) { pairing.cancel(); fail('authorization_cancelled', 'Sign-in cancelled.'); }
     this.pairings.set(LOGIN, pairing);
     try {
@@ -149,7 +157,7 @@ export class Session {
     if (!Array.isArray(settings?.scopes)) fail('server_update_required', 'Update the SupportPages server before requesting additional permissions.');
     const scopes = [...new Set([...settings.scopes.filter(scope => ['publish', 'manage', 'generate'].includes(scope)), ...input.scopes])] as ('publish' | 'manage' | 'generate')[];
     const pairing = new Pairing(this.options.origin, this.options.dev, this.options.pairingRuntime);
-    const approval = await pairing.start(deviceLabel(), { client: 'SupportPages Writer MCP' });
+    const approval = await pairing.start(deviceLabel(), await pairingOptions('SupportPages Writer MCP'));
     this.pairings.set(ws.root, pairing);
     pairing.run(async delivery => {
       if (settings.account && delivery.account.id !== settings.account.id) fail('account_mismatch', 'Approve permissions using the account already connected to this device.');
@@ -373,7 +381,7 @@ export class Session {
       finally { if (existing.finished) this.pairings.delete(ws.root); }
     }
     const pairing = new Pairing(o.origin, o.dev, o.pairingRuntime);
-    const request = await pairing.start(deviceLabel(), { client: 'SupportPages Writer MCP' });
+    const request = await pairing.start(deviceLabel(), await pairingOptions('SupportPages Writer MCP'));
     // The consent page signs in by default; a user who chose to create a free
     // account lands on registration instead (the same switch the terminal uses).
     if (input.signup) { const url = new URL(request.url); url.searchParams.set('signup', '1'); request.url = url.href; }

@@ -301,8 +301,9 @@ without losing the drafts already written.
 
 WTFM tells us how many installs are in use and when something breaks, so we
 can fix it. It says so the first time you set up a project, and it's easy to turn
-off. It is sent to SupportPages.io without your sign-in, so it can't be linked to
-your account.
+off. It is sent to SupportPages.io without your sign-in and stays anonymous until
+you sign in from this computer; after that, usage from this computer is linked to
+your account. Turning it off stops both.
 
 **What is sent**
 
@@ -318,8 +319,9 @@ your account.
   never sent.
 
 **What is never sent:** your code, file names or paths, article titles or content,
-repository or project names, your email or account, or credentials. Your IP address
-is not stored.
+repository or project names, or credentials. Your IP address is not stored. The
+install ID is also sent when you sign in from this computer, which is what links
+later usage from it to your account.
 
 **Turn it off** with any of these:
 

@@ -59,6 +59,23 @@ test('the first run counts an install once, anonymously, without credentials', a
   assert.deepEqual(net.calls[1].body.events, [{ event: 'article_completed', properties: { location: 'local', outcome: 'succeeded', duration_s: 90 } }]);
 });
 
+test('installId() returns the saved id only while reporting is on, and never creates one', async t => {
+  const dir = await configDir(t);
+  const { saveDevicePreferences } = await import('../dist/preferences.js');
+  assert.equal(await new Telemetry({ configDir: dir, origin, env }).installId(), undefined);
+  await assert.rejects(readFile(path.join(dir, 'preferences.json')), { code: 'ENOENT' });
+
+  await saveDevicePreferences(dir, { install_id: 'not-a-uuid' });
+  assert.equal(await new Telemetry({ configDir: dir, origin, env }).installId(), undefined);
+
+  await saveDevicePreferences(dir, { install_id: '0f4b6c8a-1d2e-4f30-8a9b-0c1d2e3f4a5b' });
+  assert.equal(await new Telemetry({ configDir: dir, origin, env }).installId(), '0f4b6c8a-1d2e-4f30-8a9b-0c1d2e3f4a5b');
+  assert.equal(await new Telemetry({ configDir: dir, origin, env: { SUPPORTPAGES_TELEMETRY: '0' } }).installId(), undefined);
+  assert.equal(await new Telemetry({ configDir: dir, origin, env: { DO_NOT_TRACK: '1' } }).installId(), undefined);
+  await saveDevicePreferences(dir, { telemetry: false });
+  assert.equal(await new Telemetry({ configDir: dir, origin, env }).installId(), undefined);
+});
+
 test('property values other than codes and whole numbers are never sent', async t => {
   const net = recorder();
   const telemetry = new Telemetry({ configDir: await configDir(t), origin, env, fetcher: net.fetcher });

@@ -39,14 +39,23 @@ export class Pairing {
     this.origin = apiOrigin(origin, dev);
     this.approvalOrigin = this.origin;
   }
-  /** `label` is the device name shown on the approval page (never a filesystem path). */
-  async start(label: string, options: { client: 'SupportPages Writer' | 'SupportPages Writer MCP' }) {
+  /** `label` is the device name shown on the approval page (never a filesystem path).
+   * `installId` is the anonymous telemetry id; when given it is sent so the server
+   * can link this machine's usage to the account that approves. A server too old
+   * to know the field rejects the whole body, so that case retries once without it. */
+  async start(label: string, options: { client: 'SupportPages Writer' | 'SupportPages Writer MCP'; installId?: string }) {
     const device = [...label.replace(/[\p{Cc}\p{Cf}]/gu, '').trim()].slice(0, 100).join('') || 'This device';
     this.requestedScopes = [...REQUIRED_SCOPES, ...OPTIONAL_SCOPES];
+    const body = (installId?: string) => ({ client_name: options.client, workspace_name: device,
+      requested_scopes: this.requestedScopes, ...(installId ? { install_id: installId } : {}) });
     let raw: unknown;
     try {
-      raw = await this.request('', { client_name: options.client, workspace_name: device,
-        requested_scopes: this.requestedScopes });
+      try {
+        raw = await this.request('', body(options.installId));
+      } catch (error) {
+        if (!options.installId || !(error instanceof SupportPagesError && error.code === 'invalid_request')) throw error;
+        raw = await this.request('', body());
+      }
     } catch (error) {
       if (error instanceof SupportPagesError && ['invalid_request', 'not_found'].includes(error.code)) fail('setup_unsupported', 'This SupportPages.io server does not support device sign-in yet. Ask its administrator to update it.');
       throw error;
