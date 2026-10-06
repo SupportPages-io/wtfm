@@ -110,7 +110,11 @@ test('a failed result with unresolved permission denials gives permission-specif
 });
 
 test('timeouts terminate the process group and leave private diagnostics', async t => {
-  const h = await harness(t, `console.error('private diagnostic');setInterval(()=>{},1000)`, 'codex', { timeoutMs: 200 });
+  // The child is a fresh node process; on a slow runner (Intel macOS in CI) its
+  // startup alone can exceed 200ms, so a tight timeout kills it before the
+  // diagnostic is ever written. The timeout only has to be shorter than the
+  // interval keeping the child alive.
+  const h = await harness(t, `console.error('private diagnostic');setInterval(()=>{},1000)`, 'codex', { timeoutMs: 1500 });
   await assert.rejects(runAgent(h.options), { code: 'agent_timeout' });
   assert.match(await readFile(h.options.logPath, 'utf8'), /private diagnostic/);
   assert.equal(process.listenerCount('SIGINT'), 0);
