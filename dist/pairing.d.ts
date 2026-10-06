@@ -50,9 +50,13 @@ export declare class Pairing {
     private approvalOrigin;
     private requestedScopes;
     constructor(origin: string, dev: boolean, rt?: PairingRuntime);
-    /** `label` is the device name shown on the approval page (never a filesystem path). */
+    /** `label` is the device name shown on the approval page (never a filesystem path).
+     * `installId` is the anonymous telemetry id; when given it is sent so the server
+     * can link this machine's usage to the account that approves. A server too old
+     * to know the field rejects the whole body, so that case retries once without it. */
     start(label: string, options: {
         client: 'SupportPages Writer' | 'SupportPages Writer MCP';
+        installId?: string;
     }): Promise<Approval>;
     cancel(): void;
     get finished(): boolean;

@@ -126,7 +126,7 @@ export async function runInstaller(options, dependencies) {
   const { ui: suppliedUi, installRoot, home = os.homedir(), run = command, env = process.env } = dependencies;
   // Setup writes this copy's path into client configuration; npx's cache is temporary.
   if (installRoot.split(path.sep).includes('_npx')) {
-    throw new Error(`Run setup from an installed copy: npm install -g supportpages-writer, then ${CLI_NAME} setup. npx runs from a temporary cache that npm may delete.`);
+    throw new Error(`Run setup from an installed copy: npm install -g @supportpages.io/wtfm, then ${CLI_NAME} setup. npx runs from a temporary cache that npm may delete.`);
   }
   // Setup and init run this inside their own wizard frame: no step headers, and no
   // standalone-installer indentation on the lines that remain.

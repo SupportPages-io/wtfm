@@ -4,12 +4,12 @@ import path from 'node:path';
 import { devicePreferences, saveDevicePreferences } from './preferences.js';
 import { errorReport } from './telemetry-scrub.js';
 import { CLI_NAME } from './brand.js';
-export const telemetryNotice = 'SupportPages Writer sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0.';
+export const telemetryNotice = 'SupportPages Writer sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. They stay anonymous until you sign in from this machine; after that, usage from this machine is linked to your account. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0.';
 const disabledWith = /^(0|false|off|no)$/i;
 const MAX_EVENTS = 50;
 const MAX_ERRORS = 10;
 const BATCH = 20;
-const INSTALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const INSTALL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export function telemetryStatus(env, prefs) {
     const setting = env.SUPPORTPAGES_TELEMETRY?.trim();
     if (setting && disabledWith.test(setting))
@@ -62,6 +62,19 @@ export class Telemetry {
             }
             return { enabled: true, installId, version };
         })().catch(() => ({ enabled: false }));
+    }
+    /** The install id for device sign-in: only while reporting is on and the id
+     * already exists. Never creates one, so signing in alone counts no install. */
+    async installId() {
+        try {
+            const prefs = await devicePreferences(this.options.configDir);
+            if (!telemetryStatus(this.env, prefs).enabled)
+                return undefined;
+            return typeof prefs.install_id === 'string' && INSTALL_ID.test(prefs.install_id) ? prefs.install_id : undefined;
+        }
+        catch {
+            return undefined;
+        }
     }
     track(event, properties = {}) {
         if (this.queued >= MAX_EVENTS)
@@ -145,7 +158,7 @@ export class Telemetry {
         const status = telemetryStatus(this.env, prefs);
         return { ...status, endpoint: this.endpoint,
             ...(typeof prefs.install_id === 'string' ? { install_id: prefs.install_id } : {}),
-            sends: 'Anonymous install id, Writer version, coding client name, OS, CPU architecture, Node.js major version; counts of installs, project setups, finished articles, walkthroughs and whole-help-centre runs (with outcome, location and duration); and error class, code and stack frames for unexpected errors. Never code, file paths, article titles or content, or account details.',
+            sends: 'Anonymous install id, Writer version, coding client name, OS, CPU architecture, Node.js major version; counts of installs, project setups, finished articles, walkthroughs and whole-help-centre runs (with outcome, location and duration); and error class, code and stack frames for unexpected errors. Never code, file paths, article titles or content. The install id is also sent when you sign in from this machine, which links later usage from it to your account; turning telemetry off stops both.',
             disable: `Ask the agent to turn telemetry off (supportpages_set_telemetry), run ${CLI_NAME} telemetry off, or set SUPPORTPAGES_TELEMETRY=0 or DO_NOT_TRACK=1.` };
     }
     async setEnabled(enabled) {

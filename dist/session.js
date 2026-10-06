@@ -9,12 +9,19 @@ import { ApiClient, connectionStateRoot } from './api.js';
 import { Runs } from './runs.js';
 import { readCredential, readTokenFile, saveTokenFile } from './credentials.js';
 import { Pairing } from './pairing.js';
+import { activeTelemetry } from './telemetry.js';
 import { fail, publicError } from './errors.js';
 import { replaceConnection } from './replace-connection.js';
 import { configureDevelopmentTLS } from './development-tls.js';
 import { openPreview } from './progress.js';
 import { CLI_NAME } from './brand.js';
 /** One credential per API origin: signing in covers every help centre the account can access. */
+/** The sign-in request carries the telemetry install id only while reporting
+ * is on (and never in library use or tests, where no telemetry is configured). */
+async function pairingOptions(client) {
+    const installId = await activeTelemetry()?.installId();
+    return { client, ...(installId ? { installId } : {}) };
+}
 export function credentialLocation(origin, configDir) {
     const reference = createHash('sha256').update(origin).digest('hex').slice(0, 12);
     return { reference, filename: path.join(configDir, 'credentials', `${reference}.json`) };
@@ -135,7 +142,7 @@ export class Session {
             }
         }
         const pairing = new Pairing(o.origin, o.dev, o.pairingRuntime);
-        const request = await pairing.start(deviceLabel(), { client: 'SupportPages Writer' });
+        const request = await pairing.start(deviceLabel(), await pairingOptions('SupportPages Writer'));
         if (this.closed) {
             pairing.cancel();
             fail('authorization_cancelled', 'Sign-in cancelled.');
@@ -180,7 +187,7 @@ export class Session {
             fail('server_update_required', 'Update the SupportPages server before requesting additional permissions.');
         const scopes = [...new Set([...settings.scopes.filter(scope => ['publish', 'manage', 'generate'].includes(scope)), ...input.scopes])];
         const pairing = new Pairing(this.options.origin, this.options.dev, this.options.pairingRuntime);
-        const approval = await pairing.start(deviceLabel(), { client: 'SupportPages Writer MCP' });
+        const approval = await pairing.start(deviceLabel(), await pairingOptions('SupportPages Writer MCP'));
         this.pairings.set(ws.root, pairing);
         pairing.run(async (delivery) => {
             if (settings.account && delivery.account.id !== settings.account.id)
@@ -471,7 +478,7 @@ export class Session {
             }
         }
         const pairing = new Pairing(o.origin, o.dev, o.pairingRuntime);
-        const request = await pairing.start(deviceLabel(), { client: 'SupportPages Writer MCP' });
+        const request = await pairing.start(deviceLabel(), await pairingOptions('SupportPages Writer MCP'));
         // The consent page signs in by default; a user who chose to create a free
         // account lands on registration instead (the same switch the terminal uses).
         if (input.signup) {

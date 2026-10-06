@@ -4,7 +4,6 @@ import { Bridge } from './bridge.js';
 import { type Account } from './credentials.js';
 import { type Approval, type PairingRuntime } from './pairing.js';
 import { publicError } from './errors.js';
-/** One credential per API origin: signing in covers every help centre the account can access. */
 export declare function credentialLocation(origin: string, configDir: string): {
     reference: string;
     filename: string;
