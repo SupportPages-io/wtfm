@@ -183,6 +183,7 @@ your coding agent.
 | `wtfm update` | Install the latest release |
 | `wtfm uninit` | Forget this project's setup (keeps a recovery archive) |
 | `wtfm remove` | Disconnect from your coding agents (keeps projects and articles) |
+| `wtfm uninstall` | Remove WTFM from this computer; `--purge-config` also signs out and forgets project bindings |
 
 Run `wtfm --help` for every option. `status` and `doctor` accept `--json`.
 

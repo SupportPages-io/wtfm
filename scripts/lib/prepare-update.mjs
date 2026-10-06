@@ -41,11 +41,20 @@ async function migrateTraceHook(root, { home, env }) {
   ] });
 }
 
-const MANAGED_LAUNCHER = '# SupportPages managed launcher';
-async function managedLauncher(file) {
+export const MANAGED_LAUNCHER = '# SupportPages managed launcher';
+/** True for a launcher written by the installer; `root` additionally requires it
+ * to point at that data directory (compared by resolved path, as the installer
+ * writes `pwd -P`). */
+export async function managedLauncher(file, root) {
   try {
     if (!(await lstat(file)).isFile()) return false;
-    return (await readFile(file, 'utf8')).split('\n')[1] === MANAGED_LAUNCHER;
+    const lines = (await readFile(file, 'utf8')).split('\n');
+    if (lines[1] !== MANAGED_LAUNCHER) return false;
+    if (root === undefined) return true;
+    const declared = lines.map(line => line.match(/^sp_root='([^']*)'$/)?.[1]).find(Boolean);
+    if (!declared) return false;
+    const resolve = async value => { try { return await realpath(value); } catch { return path.resolve(value); } };
+    return await resolve(declared) === await resolve(root);
   } catch { return false; }
 }
 

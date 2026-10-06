@@ -12,9 +12,9 @@ export function compareVersions(left, right) {
   return 0;
 }
 
-/** Update the managed executable without opening a workspace or authenticating. */
-export async function releaseInstallation(installRoot, env = process.env) {
-  const reinstall = 'Rerun the SupportPages Writer installer with your original --data-dir and --bin-dir to enable updates. Your configuration and article files are kept.';
+/** The receipt of the managed installation this process runs from (release or
+ * local build), validated against the launcher environment and `current`. */
+export async function managedInstallation(installRoot, env = process.env, { reinstall = 'Rerun the SupportPages Writer installer with your original --data-dir and --bin-dir. Your configuration and article files are kept.' } = {}) {
   let receipt;
   const home = env.SUPPORTPAGES_CLI_HOME;
   if (!home) fail('unmanaged_installation', 'This command is running from a source or unmanaged installation. Rerun ./install-cli.sh from your source checkout, or use the public installer.');
@@ -31,6 +31,13 @@ export async function releaseInstallation(installRoot, env = process.env) {
     const url = new URL(receipt.release_url);
     if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw Error();
   } catch { fail('invalid_installation', `The installation receipt is missing or invalid. ${reinstall}`); }
+  return { receipt, root };
+}
+
+/** Update the managed executable without opening a workspace or authenticating. */
+export async function releaseInstallation(installRoot, env = process.env) {
+  const { receipt } = await managedInstallation(installRoot, env,
+    { reinstall: 'Rerun the SupportPages Writer installer with your original --data-dir and --bin-dir to enable updates. Your configuration and article files are kept.' });
   if (receipt.type === 'local') fail('local_installation', 'This is a local development build. Rerun ./install-cli.sh from your source checkout to update it.');
   return receipt;
 }
