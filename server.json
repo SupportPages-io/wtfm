@@ -7,12 +7,12 @@
     "url": "https://github.com/SupportPages-io/wtfm",
     "source": "github"
   },
-  "version": "0.5.0",
+  "version": "0.5.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@supportpages.io/wtfm",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "transport": {
         "type": "stdio"
       },
