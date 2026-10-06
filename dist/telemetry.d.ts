@@ -6,7 +6,7 @@ import { type DevicePreferences } from './preferences.js';
  * linked to that account. Turning telemetry off stops both. See
  * docs/writer/client/telemetry.md in the RTFM repo for the exact fields;
  * nothing else is ever sent. */
-export type TelemetryEvent = 'project_init' | 'article_completed' | 'walkthrough_completed' | 'yolo_started' | 'yolo_completed';
+export type TelemetryEvent = 'project_init' | 'article_completed' | 'walkthrough_completed' | 'yolo_started' | 'yolo_completed' | 'uninstall';
 type Properties = Record<string, string | number | undefined>;
 export declare const telemetryNotice = "SupportPages Writer sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. They stay anonymous until you sign in from this machine; after that, usage from this machine is linked to your account. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0.";
 export declare const INSTALL_ID: RegExp;

@@ -311,7 +311,8 @@ your account. Turning it off stops both.
 - A random install ID created on this computer (not derived from it), the WTFM
   version, the coding client's name (e.g. `claude-code`), your OS, CPU architecture
   and Node.js major version.
-- A count when WTFM is first used, when a project is set up (local or hosted),
+- A count when WTFM is first used and when it is uninstalled (and whether its
+  settings were kept), when a project is set up (local or hosted),
   and when an article or video walkthrough finishes: its outcome, where it went
   (local, uploaded or generated on SupportPages.io), an error code if it failed,
   and how many seconds it took; likewise when a `wtfm yolo` run starts and ends.

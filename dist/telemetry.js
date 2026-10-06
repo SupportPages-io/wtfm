@@ -158,7 +158,7 @@ export class Telemetry {
         const status = telemetryStatus(this.env, prefs);
         return { ...status, endpoint: this.endpoint,
             ...(typeof prefs.install_id === 'string' ? { install_id: prefs.install_id } : {}),
-            sends: 'Anonymous install id, Writer version, coding client name, OS, CPU architecture, Node.js major version; counts of installs, project setups, finished articles, walkthroughs and whole-help-centre runs (with outcome, location and duration); and error class, code and stack frames for unexpected errors. Never code, file paths, article titles or content. The install id is also sent when you sign in from this machine, which links later usage from it to your account; turning telemetry off stops both.',
+            sends: 'Anonymous install id, Writer version, coding client name, OS, CPU architecture, Node.js major version; counts of installs and uninstalls, project setups, finished articles, walkthroughs and whole-help-centre runs (with outcome, location and duration); and error class, code and stack frames for unexpected errors. Never code, file paths, article titles or content. The install id is also sent when you sign in from this machine, which links later usage from it to your account; turning telemetry off stops both.',
             disable: `Ask the agent to turn telemetry off (supportpages_set_telemetry), run ${CLI_NAME} telemetry off, or set SUPPORTPAGES_TELEMETRY=0 or DO_NOT_TRACK=1.` };
     }
     async setEnabled(enabled) {
