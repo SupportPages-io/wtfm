@@ -33,6 +33,7 @@ Usage: ${CLI_NAME} <command> [options]
   telemetry   Show or change anonymous usage reporting: telemetry on|off|status
   update      Install the latest SupportPages Writer release; keep your settings and articles
   remove      Remove local coding-agent integrations; keep projects and articles
+  uninstall   Remove SupportPages Writer from this computer (--purge-config also signs out)
   mcp         Run the MCP server on stdio (for MCP client configuration)
 
 Run ${CLI_NAME} setup once on this computer and ${CLI_NAME} init inside each
@@ -48,7 +49,8 @@ Permission consent: ${CLI_NAME} login --scopes manage,generate,publish
 Options: --workspace PATH, --dev, --api-url ORIGIN, --config-dir PATH,
          --skills-dir PATH, --project ID (init), --agent claude|codex,
          --refresh (init, analyse), --app-type TYPE (init, analyse),
-         --skills-only (remove), --yes (remove/uninit/yolo),
+         --skills-only (remove), --purge-config (uninstall),
+         --yes (remove/uninit/uninstall/yolo),
          --json (status/doctor/sync), --help, --version
 
 ${LEGACY_CLI_NAME} is an alias for ${CLI_NAME}; both run the same command.
@@ -57,7 +59,7 @@ try {
   let parsed;
   try {parsed=parseArgs({allowPositionals:true,options:{
     ...Object.fromEntries(['workspace','api-url','config-dir','skills-dir','project','agent','app-type','scopes'].map(name=>[name,{type:'string'}])),
-    'skills-only':{type:'boolean'},yes:{type:'boolean'},refresh:{type:'boolean'},dev:{type:'boolean'},json:{type:'boolean'},help:{type:'boolean',short:'h'},version:{type:'boolean',short:'v'},
+    'skills-only':{type:'boolean'},'purge-config':{type:'boolean'},yes:{type:'boolean'},refresh:{type:'boolean'},dev:{type:'boolean'},json:{type:'boolean'},help:{type:'boolean',short:'h'},version:{type:'boolean',short:'v'},
   }});} catch {throw Object.assign(new Error(),{usage:true});}
   const {values,positionals}=parsed;
   if(values.version) process.stdout.write(JSON.parse(await readFile(path.join(installRoot,'package.json'),'utf8')).version+'\n');
@@ -74,8 +76,8 @@ try {
       if(positionals.length!==1 || Object.keys(values).length) throw Object.assign(new Error(),{usage:true});
       await updateCli({installRoot,ui:createTerminal()});
     } else {
-      if((values.scopes !== undefined && (command !== 'login' || !/^(publish|manage|generate)(,(publish|manage|generate))*$/.test(values.scopes))) || (command === 'remove' && values.workspace !== undefined) || (values.yes && !['remove','uninit','yolo'].includes(command)) || (values['skills-only'] && command!=='remove') || (values.project !== undefined && (command!=='init' || !/^[1-9][0-9]*$/.test(values.project))) || positionals.length!==1 || !['setup','init','uninit','login','logout','status','configure','doctor','analyse','sections','recommend','write','publish','yolo','remove','sync'].includes(command) || (values.json && !['status','doctor','sync'].includes(command)) || (values.agent && !['claude','codex'].includes(values.agent)) || (values.refresh && !['init','analyse','sections','recommend'].includes(command)) || (values['app-type'] && (!['init','analyse'].includes(command) || !['web','terminal','mobile','desktop','win32','macos','game'].includes(values['app-type'])))) throw Object.assign(new Error(),{usage:true});
-      if(!['status','doctor','sync','logout'].includes(command) && !(['remove','uninit'].includes(command) && values.yes) && (!process.stdin.isTTY || !process.stdout.isTTY)) {process.stderr.write(`Run ${CLI_NAME} `+command+' in an interactive terminal. Use status --json or doctor --json for automation.\n');process.exitCode=2;}
+      if((values.scopes !== undefined && (command !== 'login' || !/^(publish|manage|generate)(,(publish|manage|generate))*$/.test(values.scopes))) || (['remove','uninstall'].includes(command) && values.workspace !== undefined) || (values.yes && !['remove','uninit','uninstall','yolo'].includes(command)) || (values['skills-only'] && command!=='remove') || (values['purge-config'] && command!=='uninstall') || (command==='uninstall' && (values.dev !== undefined || values['api-url'] || values.agent || values['skills-dir'])) || (values.project !== undefined && (command!=='init' || !/^[1-9][0-9]*$/.test(values.project))) || positionals.length!==1 || !['setup','init','uninit','login','logout','status','configure','doctor','analyse','sections','recommend','write','publish','yolo','remove','uninstall','sync'].includes(command) || (values.json && !['status','doctor','sync'].includes(command)) || (values.agent && !['claude','codex'].includes(values.agent)) || (values.refresh && !['init','analyse','sections','recommend'].includes(command)) || (values['app-type'] && (!['init','analyse'].includes(command) || !['web','terminal','mobile','desktop','win32','macos','game'].includes(values['app-type'])))) throw Object.assign(new Error(),{usage:true});
+      if(!['status','doctor','sync','logout'].includes(command) && !(['remove','uninit','uninstall'].includes(command) && values.yes) && (!process.stdin.isTTY || !process.stdout.isTTY)) {process.stderr.write(`Run ${CLI_NAME} `+command+' in an interactive terminal. Use status --json or doctor --json for automation.\n');process.exitCode=2;}
       else await runCli({...values,command},{installRoot,ui:createTerminal()});
     }
   }

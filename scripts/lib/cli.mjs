@@ -15,6 +15,7 @@ import { claudePluginInstalled } from './claude-plugin.mjs';
 import { Cancelled } from './terminal.mjs';
 import { openBrowser } from './browser.mjs';
 import { removeIntegration } from './remove.mjs';
+import { uninstallCli } from './uninstall.mjs';
 import { uninitWorkspace } from './uninit.mjs';
 import { ensureWriterAvailable } from './writer-recovery.mjs';
 import { retirePublicSkillLinks } from './article-skills.mjs';
@@ -544,6 +545,7 @@ export async function runCli(options, supplied) {
   }
   const {ui,installRoot,run}=deps;
   if (options.command === 'remove') return removeIntegration(options, deps);
+  if (options.command === 'uninstall') return uninstallCli(options, deps);
   const root=await repository(options,deps);
   if (options.command === 'uninit') {
     if (options.dev !== undefined || options['api-url']) fail('invalid_request', 'uninit forgets this folder’s setup in every environment. Omit --dev and --api-url.');
