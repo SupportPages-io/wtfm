@@ -33,12 +33,13 @@ async function fixture(t, { type = 'release', marker = true } = {}) {
   await mkdir(path.join(config, 'credentials'), { recursive: true });
   await writeFile(path.join(config, 'credentials/abc.json'), '{"token":"kept-or-purged"}');
   await writeFile(path.join(config, 'preferences.json'), '{"version":1,"install_id":"0f4b6c8a-1d2e-4f30-8a9b-0c1d2e3f4a5b"}');
-  const logs = [], removeCalls = [];
+  const logs = [], removeCalls = [], sent = [];
   let confirmed = true;
+  const fetcher = async (url, init) => { sent.push({ url, body: JSON.parse(init.body) }); return new Response(null, { status: 202 }); };
   const ui = { line: s => logs.push(s), ok: s => logs.push(s), intro: s => logs.push(s), confirm: async () => confirmed };
-  const deps = { installRoot, home, env: { SUPPORTPAGES_CLI_HOME: path.join(root, 'current') }, ui, run: async () => ({ code: 0 }),
+  const deps = { installRoot, home, env: { SUPPORTPAGES_CLI_HOME: path.join(root, 'current') }, ui, run: async () => ({ code: 0 }), fetcher,
     remove: async (options, remoteDeps) => { removeCalls.push({ options, remoteDeps }); return { status: 'removed' }; } };
-  return { home, share, root, bin, config, installRoot, deps, logs, removeCalls, options: { command: 'uninstall', 'config-dir': config }, decline: () => { confirmed = false; } };
+  return { home, share, root, bin, config, installRoot, deps, logs, removeCalls, sent, options: { command: 'uninstall', 'config-dir': config }, decline: () => { confirmed = false; } };
 }
 
 test('uninstall disconnects agents first, then removes the install and launchers, keeping the config', async t => {
@@ -56,6 +57,36 @@ test('uninstall disconnects agents first, then removes the install and launchers
   assert.equal(result.config_dir, f.config);
   assert.ok(f.logs.some(line => /add --purge-config/.test(line)));
   assert.ok(f.logs.some(line => /wtfm\.sh\/install/.test(line)));
+});
+
+test('an uninstall is counted once, anonymously, with whether settings were kept', async t => {
+  const f = await fixture(t);
+  await uninstallCli(f.options, f.deps);
+  assert.equal(f.sent.length, 1);
+  assert.equal(f.sent[0].url, 'https://app.supportpages.io/api/v1/writer_telemetry');
+  assert.equal(f.sent[0].body.install_id, '0f4b6c8a-1d2e-4f30-8a9b-0c1d2e3f4a5b');
+  assert.deepEqual(f.sent[0].body.events, [{ event: 'uninstall', properties: { config: 'kept' } }]);
+
+  const g = await fixture(t);
+  await uninstallCli({ ...g.options, 'purge-config': true }, g.deps);
+  assert.deepEqual(g.sent.at(-1).body.events, [{ event: 'uninstall', properties: { config: 'purged' } }]);
+});
+
+test('no uninstall is reported when telemetry is off, when the install never reported, or when declined', async t => {
+  const off = await fixture(t);
+  off.deps.env.SUPPORTPAGES_TELEMETRY = '0';
+  await uninstallCli(off.options, off.deps);
+  assert.equal(off.sent.length, 0);
+
+  const fresh = await fixture(t);
+  await writeFile(path.join(fresh.config, 'preferences.json'), '{"version":1}');
+  await uninstallCli(fresh.options, fresh.deps);
+  assert.equal(fresh.sent.length, 0, 'saying goodbye must not create an install id');
+
+  const declined = await fixture(t);
+  declined.decline();
+  await assert.rejects(uninstallCli(declined.options, declined.deps), Cancelled);
+  assert.equal(declined.sent.length, 0);
 });
 
 test('--purge-config also removes the configuration, and a local build is removable', async t => {

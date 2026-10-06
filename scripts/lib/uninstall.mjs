@@ -8,6 +8,8 @@ import { removeIntegration } from './remove.mjs';
 import { Cancelled } from './terminal.mjs';
 import { fail } from '../../dist/errors.js';
 import { defaultConfigDir } from '../../dist/session.js';
+import { configureTelemetry } from '../../dist/telemetry.js';
+import { apiOrigin, defaultOrigin, developmentMode } from '../../dist/api.js';
 import { CLI_NAME } from './brand.mjs';
 
 const MARKER = '.supportpages-install';
@@ -23,7 +25,7 @@ const clean = value => String(value).replace(/[\p{Cc}\p{Cf}]/gu, '');
  * Runs from inside the tree it deletes. The builds are macOS and Linux only,
  * where unlinking a running program is fine; every module this needs is
  * imported above, so nothing is loaded after the files are gone. */
-export async function uninstallCli(options, { installRoot, env = process.env, home = os.homedir(), ui, run, remove = removeIntegration }) {
+export async function uninstallCli(options, { installRoot, env = process.env, home = os.homedir(), ui, run, remove = removeIntegration, fetcher }) {
   if (env.SUPPORTPAGES_PLUGIN) {
     fail('plugin_installation', 'SupportPages Writer is installed as a coding-agent plugin here. Uninstall the plugin in your coding agent instead; there is no separate installation to remove.');
   }
@@ -53,6 +55,10 @@ export async function uninstallCli(options, { installRoot, env = process.env, ho
     : 'Kept: your project folders and articles.');
   if (!options.yes && !await ui.confirm(`Remove SupportPages Writer from this computer?`, false)) throw new Cancelled('Uninstall cancelled. Nothing was removed.');
 
+  // One last anonymous count, so uninstalls show up beside installs. Only an
+  // install that already reported (has an id, telemetry on) says goodbye; the
+  // send is bounded by telemetry's own 3-second timeout and never fails this.
+  await reportUninstall({ configDir, installRoot, env, fetcher, config: purge ? 'purged' : 'kept' });
   // Integrations first: `remove` needs the installation it is about to lose.
   const integrations = await remove({ command: 'remove', 'config-dir': options['config-dir'], yes: true }, { installRoot, env, home, ui, run });
   for (const file of launchers) await rm(file, { force: true });
@@ -69,4 +75,15 @@ export async function uninstallCli(options, { installRoot, env = process.env, ho
   ui.line('Restart existing coding-agent sessions to unload the removed integrations.');
   ui.line('To reinstall: curl -fsSL https://wtfm.sh/install | bash');
   return { status: 'uninstalled', data_dir: dataDir, launchers, config_dir: purge ? null : configDir, integrations: integrations.status };
+}
+
+async function reportUninstall({ configDir, installRoot, env, fetcher, config }) {
+  try {
+    const dev = developmentMode(env.SUPPORTPAGES_DEV);
+    const telemetry = configureTelemetry({ configDir, origin: apiOrigin(env.SUPPORTPAGES_API_URL ?? defaultOrigin(dev), dev), installRoot, env, fetcher });
+    if (!await telemetry.installId()) return;
+    telemetry.track('uninstall', { config });
+    await telemetry.drain();
+  } catch { /* Reporting only. */ }
+  finally { configureTelemetry(undefined); }
 }
