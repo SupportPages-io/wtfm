@@ -168,8 +168,12 @@ jobs:
   # token, so there is no NPM_TOKEN. The trusted publisher on npmjs.com must name
   # SupportPages-io/wtfm, release.yml and the cli-release environment. The MCP
   # Registry is published only when PUBLISH_MCP_REGISTRY is set to true.
+  # npm is not a distribution channel yet: the job runs only when the repository
+  # variable PUBLISH_NPM is "true" (and the trusted publisher on npmjs.com names
+  # this repo, release.yml and the cli-release environment). Until then a tagged
+  # release is complete once R2 has promoted latest.txt.
   npm:
-    if: ${{ github.event_name == 'push' || inputs.publish }}
+    if: ${{ (github.event_name == 'push' || inputs.publish) && vars.PUBLISH_NPM == 'true' }}
     needs: publish
     runs-on: ubuntu-24.04
     environment: cli-release
