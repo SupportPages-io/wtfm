@@ -31,9 +31,9 @@ Usage: ${CLI_NAME} <command> [options]
   sync        Refresh remote project settings and article history
   doctor      Check your installation and generation prerequisites
   telemetry   Show or change anonymous usage reporting: telemetry on|off|status
-  update      Install the latest SupportPages Writer release; keep your settings and articles
+  update      Install the latest WTFM release; keep your settings and articles
   remove      Remove local coding-agent integrations; keep projects and articles
-  uninstall   Remove SupportPages Writer from this computer (--purge-config also signs out)
+  uninstall   Remove WTFM from this computer (--purge-config also signs out)
   mcp         Run the MCP server on stdio (for MCP client configuration)
 
 Run ${CLI_NAME} setup once on this computer and ${CLI_NAME} init inside each

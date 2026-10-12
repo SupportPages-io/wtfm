@@ -1,8 +1,8 @@
 {
   "name": "supportpages-writer",
-  "displayName": "SupportPages Writer",
+  "displayName": "WTFM",
   "description": "Your coding agent writes illustrated help articles from your codebase, with screenshots rendered from the real interface code.",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "author": {
     "name": "SupportPages",
     "url": "https://supportpages.io"

@@ -12,7 +12,7 @@ import { configureTelemetry, reportError } from './telemetry.js';
 try {
     const [major = 0, minor = 0] = process.versions.node.split('.').map(Number);
     if (major < 22 || major === 22 && minor < 12) {
-        fail('missing_dependency', `SupportPages Writer needs Node.js 22.12 or later; this is ${process.version}. Install a newer Node.js and restart your coding agent.`);
+        fail('missing_dependency', `WTFM needs Node.js 22.12 or later; this is ${process.version}. Install a newer Node.js and restart your coding agent.`);
     }
     const { values } = parseArgs({ options: { workspace: { type: 'string' }, 'api-url': { type: 'string' }, 'skills-dir': { type: 'string' }, 'token-file': { type: 'string' }, 'config-dir': { type: 'string' }, dev: { type: 'boolean' }, help: { type: 'boolean' }, doctor: { type: 'boolean' } } });
     if (values.help) {

@@ -8,7 +8,7 @@ import { type DevicePreferences } from './preferences.js';
  * nothing else is ever sent. */
 export type TelemetryEvent = 'project_init' | 'article_completed' | 'walkthrough_completed' | 'yolo_started' | 'yolo_completed' | 'uninstall';
 type Properties = Record<string, string | number | undefined>;
-export declare const telemetryNotice = "SupportPages Writer sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. They stay anonymous until you sign in from this machine; after that, usage from this machine is linked to your account. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0.";
+export declare const telemetryNotice = "WTFM sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. They stay anonymous until you sign in from this machine; after that, usage from this machine is linked to your account. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0.";
 export declare const INSTALL_ID: RegExp;
 export type TelemetryReason = 'SUPPORTPAGES_TELEMETRY' | 'DO_NOT_TRACK' | 'CI' | 'preference' | 'default';
 export declare function telemetryStatus(env: NodeJS.ProcessEnv, prefs: DevicePreferences): {
@@ -53,7 +53,7 @@ export declare class Telemetry {
     /** Resolves once everything queued so far has been sent or dropped. */
     drain(): Promise<void>;
     /** The one-time disclosure, returned the first time it is due and never again. */
-    notice(): Promise<"SupportPages Writer sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. They stay anonymous until you sign in from this machine; after that, usage from this machine is linked to your account. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0." | undefined>;
+    notice(): Promise<"WTFM sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. They stay anonymous until you sign in from this machine; after that, usage from this machine is linked to your account. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0." | undefined>;
     status(): Promise<{
         sends: string;
         disable: string;

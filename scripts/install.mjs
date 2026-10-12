@@ -6,7 +6,7 @@ import { createTerminal, Cancelled } from './lib/terminal.mjs';
 import { runInstaller } from './lib/install.mjs';
 import { CLI_NAME } from './lib/brand.mjs';
 
-const help = `SupportPages Writer — guided local setup
+const help = `WTFM — guided local setup
 
 Usage: ./install.sh [options]
        node scripts/install.mjs [options]
@@ -29,7 +29,7 @@ client globally. Optionally connect a repository through browser setup. Run it f
 
 Installation does not sign you in. Afterwards run ${CLI_NAME} setup once on this
 computer, then ${CLI_NAME} init inside each project folder, or ask your coding
-client to initialize SupportPages.io. Articles can be saved in the project without
+client to set up WTFM. Articles can be saved in the project without
 an account; signing in (browser approval, private credentials) is needed only to
 host them on a help centre.
 `;

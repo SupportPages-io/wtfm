@@ -69,7 +69,7 @@ async function chooseAnalysisAgent(ui, clients, preferred) {
   if (clients.length < 2) return clients[0];
   const ordered = [...clients].sort((a, b) => (b === 'claude') - (a === 'claude'));
   const initial = clients.includes(preferred) ? preferred : ordered[0];
-  ui.line(`Project analysis runs in one agent and becomes the default for ${CLI_NAME} analyse. When you write, SupportPages uses whichever agent you are working in.`);
+  ui.line(`Project analysis runs in one agent and becomes the default for ${CLI_NAME} analyse. When you write, WTFM uses whichever agent you are working in.`);
   return ui.choose('Which coding agent should run project analysis?', ordered.map(value => ({ value, label: agentLabel(value),
     ...(value === 'claude' ? { hint: 'Recommended' } : {}) })), ordered.indexOf(initial));
 }
@@ -177,7 +177,7 @@ async function chooseModelSettings(agent, saved, bridge, deps, listed) {
   const recommended = recommendedModel(agent, discovered);
   const models = [
     ...discovered.map(model => ({ ...model,
-      label: model.value === recommended?.value ? `${model.label} — Recommended for SupportPages.io` : model.label,
+      label: model.value === recommended?.value ? `${model.label} — Recommended for WTFM` : model.label,
       hint: modelHint(agent, model, recommended) })),
     ...(saved.models?.[agent]?.model && current.model && !discovered.some(m => m.value === current.model)
       ? [{ value: current.model, label: `${current.model} (current setting)`, hint: 'Not listed by the coding agent' }] : []),
@@ -188,7 +188,7 @@ async function chooseModelSettings(agent, saved, bridge, deps, listed) {
     ? current.model === null ? 'inherit' : models.some(m => m.value === current.model) ? current.model : 'custom'
     : recommended?.value ?? discovered.find(m => m.isDefault)?.value ?? 'inherit';
   ui.line('Your model analyses the application and creates the article’s illustrated mockups. Lighter models may simplify layouts or miss interface details.');
-  if (recommended) ui.line(`For faithful mockups, SupportPages.io recommends ${recommended.label} with Medium effort when supported.`);
+  if (recommended) ui.line(`For faithful mockups, WTFM recommends ${recommended.label} with Medium effort when supported.`);
   else if (discovered.length) ui.line('We could not identify a recommended model in this catalogue. Choose an available model or use your agent’s default.');
   const choice = await ui.choose(`${agentLabel(agent)} model`, models, models.findIndex(m => m.value === selected));
   const model = choice === 'inherit' ? null : choice === 'custom'
@@ -197,7 +197,7 @@ async function chooseModelSettings(agent, saved, bridge, deps, listed) {
   const metadata = discovered.find(item => item.value === model);
   const effortOptions = [
     ...(metadata?.efforts ?? efforts[agent]).map(value => ({ value,
-      label: `${value[0].toUpperCase()}${value.slice(1)}${value === 'medium' ? ' — Recommended for SupportPages.io' : ''}`,
+      label: `${value[0].toUpperCase()}${value.slice(1)}${value === 'medium' ? ' — Recommended for WTFM' : ''}`,
       hint: effortHints[value] })),
     { value: 'inherit', label: 'Use my coding agent’s default effort' },
   ];

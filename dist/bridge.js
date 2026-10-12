@@ -307,7 +307,7 @@ export class Bridge {
             await stat(path.join(this.skillsDir, 'generate-illustrated-article', 'SKILL.md'));
         }
         catch {
-            fail('missing_dependency', 'The article engine is missing from this installation. Reinstall SupportPages Writer, or point RTFM_SKILLS_DIR at an engine directory.');
+            fail('missing_dependency', 'The article engine is missing from this installation. Reinstall WTFM, or point RTFM_SKILLS_DIR at an engine directory.');
         }
         if (pluginName)
             await this.requirePluginRenderer();

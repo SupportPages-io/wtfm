@@ -55,7 +55,7 @@ export declare class Pairing {
      * can link this machine's usage to the account that approves. A server too old
      * to know the field rejects the whole body, so that case retries once without it. */
     start(label: string, options: {
-        client: 'SupportPages Writer' | 'SupportPages Writer MCP';
+        client: 'WTFM' | 'WTFM MCP';
         installId?: string;
     }): Promise<Approval>;
     cancel(): void;

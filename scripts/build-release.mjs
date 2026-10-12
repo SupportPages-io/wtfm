@@ -46,7 +46,7 @@ if(values.local) {
     process.stderr.write('Installing build dependencies...\n');
     await checked(['ci','--include=dev','--no-audit','--no-fund','--prefer-offline']);
   }
-  process.stderr.write('Building SupportPages Writer...\n');
+  process.stderr.write('Building WTFM...\n');
   await checked(['run','build']);
 } else {
   npmRoot=path.dirname(path.dirname(await realpath(path.join(values['runtime-dir'],'bin/npm'))));

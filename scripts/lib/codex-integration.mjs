@@ -12,9 +12,9 @@ export async function installCodexIntegration({ home = os.homedir(), env = proce
   const config = path.resolve(env.CODEX_HOME || path.join(home, '.codex'));
   const { codexWriterFile, writerAgentType } = await import('../../dist/writer-agent.js');
   const agent = await installManagedWriter({ config, name: writerAgentType, extension: 'toml', contents: codexWriterFile, marker: '# Managed by SupportPages: article writer v1' });
-  if (agent.changed) ui?.line('Installed the SupportPages Writer agent for Codex. Restart existing Codex sessions to load it.');
+  if (agent.changed) ui?.line('Installed the WTFM agent for Codex. Restart existing Codex sessions to load it.');
   const skill = await installCodexSkill({ home, env });
-  if (skill.changed) ui?.line('Installed the SupportPages.io article skill for Codex. Restart existing Codex sessions to load it.');
+  if (skill.changed) ui?.line('Installed the WTFM article skill for Codex. Restart existing Codex sessions to load it.');
   const filename = path.join(config, 'config.toml');
   const info = await lstat(filename);
   if (info.isSymbolicLink() || !info.isFile()) throw Error(`Cannot update Codex permissions at an unsafe path: ${filename}`);
@@ -27,7 +27,7 @@ export async function installCodexIntegration({ home = os.homedir(), env = proce
     if (!server) throw Error('Register the SupportPages.io Codex connection before installing its publishing permission.');
     const edits = [];
     if (registration) {
-      if (!server.command || server.url) throw Error('The existing Codex connection is not the expected local SupportPages.io server. Keep it and choose another connection name.');
+      if (!server.command || server.url) throw Error('The existing Codex connection is not the expected local WTFM server. Keep it and choose another connection name.');
       edits.push({ keyPath: `mcp_servers.${name}.command`, value: registration.command, mergeStrategy: 'replace' },
         { keyPath: `mcp_servers.${name}.args`, value: registration.args, mergeStrategy: 'replace' });
     }
@@ -53,8 +53,8 @@ export async function installCodexIntegration({ home = os.homedir(), env = proce
     if (!edits.length) return { changed, ...(keptExistingPolicy ? { keptExistingPolicy } : {}) };
     await backup(filename, path.join(configDir, 'backups'));
     const result = await request('config/batchWrite', { filePath: canonical, expectedVersion: user.version, edits });
-    if (result.status !== 'ok') throw Error('Codex could not save the SupportPages.io tool permissions.');
-    if (changed && announcePermission) ui?.line("Allowed SupportPages Writer's tools in Codex; deleting or unpublishing an article still asks first.");
+    if (result.status !== 'ok') throw Error('Codex could not save the WTFM tool permissions.');
+    if (changed && announcePermission) ui?.line("Allowed WTFM's tools in Codex; deleting or unpublishing an article still asks first.");
     return { changed, ...(keptExistingPolicy ? { keptExistingPolicy } : {}) };
   });
   return { agent, skill, permission };

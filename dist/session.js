@@ -142,7 +142,7 @@ export class Session {
             }
         }
         const pairing = new Pairing(o.origin, o.dev, o.pairingRuntime);
-        const request = await pairing.start(deviceLabel(), await pairingOptions('SupportPages Writer'));
+        const request = await pairing.start(deviceLabel(), await pairingOptions('WTFM'));
         if (this.closed) {
             pairing.cancel();
             fail('authorization_cancelled', 'Sign-in cancelled.');
@@ -187,7 +187,7 @@ export class Session {
             fail('server_update_required', 'Update the SupportPages server before requesting additional permissions.');
         const scopes = [...new Set([...settings.scopes.filter(scope => ['publish', 'manage', 'generate'].includes(scope)), ...input.scopes])];
         const pairing = new Pairing(this.options.origin, this.options.dev, this.options.pairingRuntime);
-        const approval = await pairing.start(deviceLabel(), await pairingOptions('SupportPages Writer MCP'));
+        const approval = await pairing.start(deviceLabel(), await pairingOptions('WTFM MCP'));
         this.pairings.set(ws.root, pairing);
         pairing.run(async (delivery) => {
             if (settings.account && delivery.account.id !== settings.account.id)
@@ -478,7 +478,7 @@ export class Session {
             }
         }
         const pairing = new Pairing(o.origin, o.dev, o.pairingRuntime);
-        const request = await pairing.start(deviceLabel(), await pairingOptions('SupportPages Writer MCP'));
+        const request = await pairing.start(deviceLabel(), await pairingOptions('WTFM MCP'));
         // The consent page signs in by default; a user who chose to create a free
         // account lands on registration instead (the same switch the terminal uses).
         if (input.signup) {

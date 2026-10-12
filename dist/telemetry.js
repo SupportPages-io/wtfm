@@ -4,7 +4,7 @@ import path from 'node:path';
 import { devicePreferences, saveDevicePreferences } from './preferences.js';
 import { errorReport } from './telemetry-scrub.js';
 import { CLI_NAME } from './brand.js';
-export const telemetryNotice = 'SupportPages Writer sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. They stay anonymous until you sign in from this machine; after that, usage from this machine is linked to your account. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0.';
+export const telemetryNotice = 'WTFM sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. They stay anonymous until you sign in from this machine; after that, usage from this machine is linked to your account. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0.';
 const disabledWith = /^(0|false|off|no)$/i;
 const MAX_EVENTS = 50;
 const MAX_ERRORS = 10;
@@ -168,7 +168,7 @@ export class Telemetry {
             this.queue = [];
         const status = await this.status();
         return { ...status, message: status.enabled === enabled
-                ? `Anonymous usage counts and crash reports are now ${enabled ? 'on' : 'off'} for SupportPages Writer on this device.`
+                ? `Anonymous usage counts and crash reports are now ${enabled ? 'on' : 'off'} for WTFM on this device.`
                 : `Saved, but ${status.reason} in the environment keeps telemetry ${status.enabled ? 'on' : 'off'}.` };
     }
 }

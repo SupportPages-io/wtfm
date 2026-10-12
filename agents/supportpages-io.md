@@ -1,6 +1,6 @@
 ---
 name: supportpages-io
-description: "SupportPages Writer agent for illustrated help articles. Use only after supportpages_prepare_article or supportpages_retry_article returns a task brief."
+description: "WTFM agent for illustrated help articles. Use only after supportpages_prepare_article or supportpages_retry_article returns a task brief."
 model: inherit
 ---
 

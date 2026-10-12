@@ -1,7 +1,7 @@
 {
   "name": "@supportpages.io/wtfm",
-  "version": "0.5.2",
-  "description": "SupportPages Writer — illustrated article authoring from your codebase",
+  "version": "0.5.4",
+  "description": "WTFM (Write the F***ing Manual): your coding agent writes the user docs, screenshots included. By SupportPages.io.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "@clack/prompts": "1.6.0",
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "marked": "17.0.6",
     "puppeteer": "25.11.0",
     "yauzl": "3.4.0",

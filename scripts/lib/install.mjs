@@ -93,7 +93,7 @@ export async function installationSkills(installRoot, selected) {
 export async function findSkills(explicit, { home, installRoot }) {
   if (explicit) return { directory: await installationSkills(installRoot, await realpath(expand(explicit, home))) };
   const engine = bundledEngine(installRoot);
-  if (!await exists(engine)) throw new Error(`The article engine is missing from this installation: ${engine}. Reinstall SupportPages Writer.`);
+  if (!await exists(engine)) throw new Error(`The article engine is missing from this installation: ${engine}. Reinstall WTFM.`);
   return { directory: await realpath(engine) };
 }
 
@@ -150,12 +150,12 @@ export async function runInstaller(options, dependencies) {
   let client = options.client;
   if (!client) {
     const choices = [...available.map(value => ({ value, label: value === 'codex' ? 'Codex' : 'Claude Code' })), ...(available.length === 2 ? [{ value: 'both', label: 'Both' }] : []), { value: 'manual', label: 'Another MCP client — show configuration' }];
-    client = await ui.choose('Where will you use SupportPages.io?', choices, available.length === 2 ? 2 : 0);
+    client = await ui.choose('Where will you use WTFM?', choices, available.length === 2 ? 2 : 0);
   }
   if (!['codex', 'claude', 'both', 'manual'].includes(client)) throw new Error('--client must be codex, claude, both, or manual.');
   let clients = client === 'both' ? ['codex', 'claude'] : client === 'manual' ? [] : [client];
   if (clients.includes('claude') && await claudePluginInstalled({ home, env })) {
-    ui.line('  Claude Code already has the SupportPages Writer plugin, which provides the server and writer; skipping a second Claude registration.');
+    ui.line('  Claude Code already has the WTFM plugin, which provides the server and writer; skipping a second Claude registration.');
     clients = clients.filter(name => name !== 'claude');
   }
   for (const name of clients) if (!available.includes(name)) throw new Error(`${name} is not installed or is not on PATH. Install it first, or choose --client manual.`);
@@ -165,8 +165,8 @@ export async function runInstaller(options, dependencies) {
   for (const executable of ['npm', 'git']) {
     const result = await run(executable, ['--version'], { capture: true });
     if (result.code !== 0) {
-      if (executable === 'npm' && await exists(path.resolve(installRoot, '../runtime/bin/npm'))) throw new Error('Missing bundled npm. Reinstall SupportPages Writer, then rerun setup.');
-      throw new Error(`Missing ${executable}. Install it and rerun setup. Published SupportPages Writer releases include Node and npm; Git must be installed separately.`);
+      if (executable === 'npm' && await exists(path.resolve(installRoot, '../runtime/bin/npm'))) throw new Error('Missing bundled npm. Reinstall WTFM, then rerun setup.');
+      throw new Error(`Missing ${executable}. Install it and rerun setup. Published WTFM releases include Node and npm; Git must be installed separately.`);
     }
   }
   if (!options['skip-dependencies']) {
@@ -218,7 +218,7 @@ export async function runInstaller(options, dependencies) {
   ui.step(4, 'Connect your coding client');
   if (clients.includes('claude')) {
     const agent = await installClaudeWriter({ home, env });
-    ui.line(options.embedded ? 'Added SupportPages Writer to Claude Code.' : `  SupportPages Writer agent available to Claude Code: ${agent.filename}`);
+    ui.line(options.embedded ? 'Added WTFM to Claude Code.' : `  WTFM agent available to Claude Code: ${agent.filename}`);
   }
   const serverArgs = [path.join(installRoot, 'dist/index.js'), ...(dev ? ['--dev'] : []), '--api-url', origin, '--skills-dir', skills.directory, '--config-dir', configDir];
   const manual = { mcpServers: { [name]: { command: dependencies.node ?? process.execPath, args: serverArgs } } };
@@ -251,7 +251,7 @@ export async function runInstaller(options, dependencies) {
     await privateJson(receiptPath, receipt);
     if (selected === 'claude') {
       const permission = await installClaudePermissions({ home, env, name, configDir, backup, writeJson: privateJson });
-      if (permission.changed && !options.embedded) ui.line("  Allowed SupportPages Writer's tools in Claude Code; deleting or unpublishing an article still asks first.");
+      if (permission.changed && !options.embedded) ui.line("  Allowed WTFM's tools in Claude Code; deleting or unpublishing an article still asks first.");
     }
     if (selected === 'codex' && !updatingCodex) await (dependencies.installCodex ?? installCodexIntegration)({ home, env, name, configDir, backup, ui, announcePermission: !options.embedded });
     ui.ok(`${selected === 'codex' ? 'Codex' : 'Claude Code'} connected as ${name}`);
@@ -263,7 +263,7 @@ export async function runInstaller(options, dependencies) {
   if (options.embedded) return { name, clients: receipt.clients, manualPath, skillsDir: skills.directory };
   ui.line('\n  Setup complete.');
   ui.line('  Restart your coding client and open any product repository.');
-  ui.line('  Try: “Initialize SupportPages.io for this project.”');
+  ui.line('  Try: “Set up WTFM for this project.”');
   ui.line(`  Run ${CLI_NAME} setup once on this computer, then ${CLI_NAME} init inside each project folder.`);
   return { name, clients: receipt.clients, manualPath, skillsDir: skills.directory };
 }
