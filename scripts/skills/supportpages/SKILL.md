@@ -1,11 +1,11 @@
 ---
 name: supportpages
-description: Create or retry illustrated help articles in SupportPages.io using its MCP connection and article writer. Use for SupportPages.io article requests, including generating an unpublished draft for review.
+description: Create or retry illustrated help articles with WTFM (by SupportPages.io) using its MCP connection and article writer. Use for WTFM or SupportPages.io article requests, including generating an unpublished draft for review.
 ---
 
 <!-- Managed by SupportPages: article coordination v1 -->
 
-# SupportPages.io articles
+# WTFM articles
 
 Use the SupportPages.io MCP connection for the current project.
 

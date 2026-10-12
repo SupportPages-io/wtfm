@@ -243,7 +243,7 @@ export class Bridge {
     if (input.section_id && !context.sections.some(s => s.id === input.section_id)) fail('invalid_section', 'Select a section belonging to the bound project.');
     const slug = input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     if (!slug || slug.length > 120) fail('invalid_title', 'Use a title that produces a nonempty ASCII slug of at most 120 characters.');
-    try { await stat(path.join(this.skillsDir, 'generate-illustrated-article', 'SKILL.md')); } catch { fail('missing_dependency', 'The article engine is missing from this installation. Reinstall SupportPages Writer, or point RTFM_SKILLS_DIR at an engine directory.'); }
+    try { await stat(path.join(this.skillsDir, 'generate-illustrated-article', 'SKILL.md')); } catch { fail('missing_dependency', 'The article engine is missing from this installation. Reinstall WTFM, or point RTFM_SKILLS_DIR at an engine directory.'); }
     if (pluginName) await this.requirePluginRenderer();
     return this.lock(async () => {
       if (!context.local) {

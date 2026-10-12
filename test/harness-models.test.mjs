@@ -248,7 +248,7 @@ test('recommendations use the strongest known available fallback and newest vers
     });
     for (const [question, id] of [['Claude Code model', 'claude-opus-4-6'], ['Codex model', 'gpt-5.6-sol']]) {
       const { choices } = h.prompts.find(p => p.question === question);
-      assert.deepEqual(choices.filter(c => c.label.includes('Recommended for SupportPages.io')).map(c => c.value), [id]);
+      assert.deepEqual(choices.filter(c => c.label.includes('Recommended for WTFM')).map(c => c.value), [id]);
     }
   }
 });

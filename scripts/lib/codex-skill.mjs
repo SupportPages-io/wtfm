@@ -24,7 +24,7 @@ export async function refreshCodexSkill({ home = os.homedir(), env = process.env
         entry = path.join(entry, part);
         const info = await lstat(entry);
         if (info.isSymbolicLink() || (entry === path.join(config, ...parts) ? !info.isFile() : !info.isDirectory())) {
-          throw Error(`Cannot refresh the SupportPages.io skill from an unsafe path: ${entry}`);
+          throw Error(`Cannot refresh the WTFM skill from an unsafe path: ${entry}`);
         }
       }
       if ((await readFile(entry, 'utf8')).includes(ownership)) return installCodexSkill({ home, env });

@@ -14,7 +14,7 @@ export function compareVersions(left, right) {
 
 /** The receipt of the managed installation this process runs from (release or
  * local build), validated against the launcher environment and `current`. */
-export async function managedInstallation(installRoot, env = process.env, { reinstall = 'Rerun the SupportPages Writer installer with your original --data-dir and --bin-dir. Your configuration and article files are kept.' } = {}) {
+export async function managedInstallation(installRoot, env = process.env, { reinstall = 'Rerun the WTFM installer with your original --data-dir and --bin-dir. Your configuration and article files are kept.' } = {}) {
   let receipt;
   const home = env.SUPPORTPAGES_CLI_HOME;
   if (!home) fail('unmanaged_installation', 'This command is running from a source or unmanaged installation. Rerun ./install-cli.sh from your source checkout, or use the public installer.');
@@ -37,7 +37,7 @@ export async function managedInstallation(installRoot, env = process.env, { rein
 /** Update the managed executable without opening a workspace or authenticating. */
 export async function releaseInstallation(installRoot, env = process.env) {
   const { receipt } = await managedInstallation(installRoot, env,
-    { reinstall: 'Rerun the SupportPages Writer installer with your original --data-dir and --bin-dir to enable updates. Your configuration and article files are kept.' });
+    { reinstall: 'Rerun the WTFM installer with your original --data-dir and --bin-dir to enable updates. Your configuration and article files are kept.' });
   if (receipt.type === 'local') fail('local_installation', 'This is a local development build. Rerun ./install-cli.sh from your source checkout to update it.');
   return receipt;
 }
@@ -46,15 +46,15 @@ export async function updateCli({ installRoot, env = process.env, run = command,
   const receipt = await releaseInstallation(installRoot, env);
   const current = JSON.parse(await readFile(path.join(installRoot, 'package.json'), 'utf8')).version;
   const releaseUrl = receipt.release_url.replace(/\/$/, '');
-  ui.line('Checking for a SupportPages Writer update…');
+  ui.line('Checking for a WTFM update…');
   const latest = await run('curl', ['--proto', '=https', '--proto-redir', '=https', '-fsSL', '--max-time', String(checkTimeout), `${releaseUrl}/latest.txt`], { capture: true, env });
   if (latest.code !== 0) fail('update_unavailable', `Could not check for updates. Ensure curl is installed and your network is available, then rerun ${CLI_NAME} update.`);
   const next = latest.stdout.trim();
   if (compareVersions(current, next) >= 0) {
-    ui.line(`SupportPages Writer ${current} is up to date. No update needed.`);
+    ui.line(`WTFM ${current} is up to date. No update needed.`);
     return { status: 'current', version: current };
   }
-  ui.line(`Updating SupportPages Writer ${current} to ${next}…`);
+  ui.line(`Updating WTFM ${current} to ${next}…`);
   const result = await run('bash', [path.join(installRoot, 'install-cli.sh'), '--yes', '--update', '--version', next,
     '--data-dir', receipt.data_dir, '--bin-dir', receipt.bin_dir], { env: { ...env, SUPPORTPAGES_CLI_RELEASE_URL: releaseUrl } });
   if (result.code !== 0) fail('update_failed', `Update could not finish. Your previous version remains available. Resolve the installer error above and rerun ${CLI_NAME} update.`);

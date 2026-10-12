@@ -302,7 +302,7 @@ test('PATH prompt accepts or declines through the controlling terminal and prese
     const result=spawnSync('python3',['-c',python,answer==='n'?'n':'y','install-cli.sh','--archive',f.file,'--data-dir',f.data,'--bin-dir',f.bin],{env:{...process.env,HOME:home,ZDOTDIR:home,SHELL:'/bin/zsh'},encoding:'utf8',timeout:15000});
     if(result.status===77 && result.stdout.includes("TTY_ACCESS_DENIED")) {t.skip("Sandbox denies opening /dev/tty; covered on release runners");return;}
     assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/Add wtfm/);
-    if(answer==='y') assert.match(await readFile(profile,'utf8'),/# SupportPages Writer/);
+    if(answer==='y') assert.match(await readFile(profile,'utf8'),/# WTFM/);
     if(answer==='n') await assert.rejects(lstat(profile),{code:'ENOENT'});
     if(answer==='linked') {assert.match(result.stdout,/symlink/);assert.equal(await readFile(target,'utf8'),'keep\n');}
   }

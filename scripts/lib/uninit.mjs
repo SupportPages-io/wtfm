@@ -27,7 +27,7 @@ export async function uninitWorkspace(root, configDir, { ui, yes = false } = {})
     ui.ok(`This folder is already uninitialized. Run ${CLI_NAME} init to set it up.`);
     return { status: 'uninitialized', already_uninitialized: true, workspace: ws.root };
   }
-  ui.intro?.('SupportPages Writer · Forget project setup');
+  ui.intro?.('WTFM · Forget project setup');
   ui.line(`Folder: ${ws.root.replace(/[\p{Cc}\p{Cf}]/gu, '')}`);
   ui.line('Forget this folder’s local, development and production setup, including its remembered API environment.');
   ui.line('Setup and recovery files will be archived. Exported articles, remote content, device sign-in and agent integrations are kept. Hosted jobs already submitted keep running.');

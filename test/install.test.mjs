@@ -258,14 +258,14 @@ test('global dev installation persists the environment without a workspace', asy
   assert.ok(!args.includes('--workspace'));
 });
 
-test('setup leaves Claude to an installed SupportPages Writer plugin instead of registering it twice', async t => {
+test('setup leaves Claude to an installed WTFM plugin instead of registering it twice', async t => {
   const f = await fixture(t);
   await mkdir(path.join(f.home, '.claude/plugins'), { recursive: true });
   await writeFile(path.join(f.home, '.claude/plugins/installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'supportpages-writer@supportpages': [{ scope: 'user', version: '0.1.16' }] } }));
   const result = await runInstaller({ ...f.options, yes: true, client: 'both', 'skip-skills': true }, f.deps);
   assert.deepEqual(result.clients, ['codex']);
   assert.ok(!f.calls.some(call => call.cmd === 'claude' && call.args.includes('add')), 'no Claude MCP registration');
-  assert.ok(f.logs.some(line => /already has the SupportPages Writer plugin/.test(line)));
+  assert.ok(f.logs.some(line => /already has the WTFM plugin/.test(line)));
 });
 
 test('inside setup and init the installer keeps paths, file names and permission rules out of the wizard', async t => {
@@ -275,7 +275,7 @@ test('inside setup and init the installer keeps paths, file names and permission
   await runInstaller({ ...f.options, yes: true, embedded: true }, f.deps);
   const logs = f.logs.join('\n');
   assert.doesNotMatch(logs, /Using |permission|mcp__|\.md\b/);
-  assert.match(logs, /^Added SupportPages Writer to Claude Code\.$/m);
+  assert.match(logs, /^Added WTFM to Claude Code\.$/m);
   assert.ok(f.logs.every(line => !/^\s/.test(line)), 'no standalone-installer indentation');
   assert.deepEqual(codex, [false]);
   // The standalone installer still reports the details.

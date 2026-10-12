@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 export const PLUGIN_NAME = 'supportpages-writer';
 
-/** True when Claude Code has the SupportPages Writer plugin installed (any
+/** True when Claude Code has the WTFM plugin installed (any
  * marketplace, any scope). The plugin brings its own MCP server and writer
  * agent, so a separate registration would show every tool twice. */
 export async function claudePluginInstalled({ home, env = {} }) {

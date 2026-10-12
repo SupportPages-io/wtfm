@@ -16,7 +16,7 @@ const MARKER = '.supportpages-install';
 const LAUNCHERS = ['supportpages', 'wtfm'];
 const clean = value => String(value).replace(/[\p{Cc}\p{Cf}]/gu, '');
 
-/** Remove SupportPages Writer from this computer: the coding-agent integrations
+/** Remove WTFM from this computer: the coding-agent integrations
  * (as `remove` does), then the managed installation and its launchers. Project
  * folders and their articles are never touched. The configuration directory
  * (sign-in, project bindings, the anonymous install id) is kept unless
@@ -27,13 +27,13 @@ const clean = value => String(value).replace(/[\p{Cc}\p{Cf}]/gu, '');
  * imported above, so nothing is loaded after the files are gone. */
 export async function uninstallCli(options, { installRoot, env = process.env, home = os.homedir(), ui, run, remove = removeIntegration, fetcher }) {
   if (env.SUPPORTPAGES_PLUGIN) {
-    fail('plugin_installation', 'SupportPages Writer is installed as a coding-agent plugin here. Uninstall the plugin in your coding agent instead; there is no separate installation to remove.');
+    fail('plugin_installation', 'WTFM is installed as a coding-agent plugin here. Uninstall the plugin in your coding agent instead; there is no separate installation to remove.');
   }
   const { receipt, root } = await managedInstallation(installRoot, env,
     { reinstall: `Delete the installation directory yourself, after ${CLI_NAME} remove has disconnected your coding agents.` });
   const dataDir = await realpath(root);
   if (!await exists(path.join(dataDir, MARKER))) {
-    fail('invalid_installation', `${clean(dataDir)} does not carry the SupportPages installation marker, so it will not be removed. Delete it yourself if it is ours.`);
+    fail('invalid_installation', `${clean(dataDir)} does not carry the WTFM installation marker, so it will not be removed. Delete it yourself if it is ours.`);
   }
   const launchers = [];
   for (const name of LAUNCHERS) {
@@ -45,7 +45,7 @@ export async function uninstallCli(options, { installRoot, env = process.env, ho
   const purge = Boolean(options['purge-config']) && await exists(configDir);
   const keptConfig = !purge && await exists(configDir);
 
-  ui.intro?.('SupportPages Writer · Uninstall');
+  ui.intro?.('WTFM · Uninstall');
   ui.line('Coding-agent integrations (Claude Code and Codex connections, writer agents, permission rules and skill shortcuts)');
   ui.line(`Installed releases and runtime: ${clean(dataDir)}`);
   for (const file of launchers) ui.line(`Command: ${clean(file)}`);
@@ -53,7 +53,7 @@ export async function uninstallCli(options, { installRoot, env = process.env, ho
   ui.line(keptConfig
     ? `Kept: your project folders and articles, and ${clean(configDir)} (sign-in and project bindings; add --purge-config to remove it too).`
     : 'Kept: your project folders and articles.');
-  if (!options.yes && !await ui.confirm(`Remove SupportPages Writer from this computer?`, false)) throw new Cancelled('Uninstall cancelled. Nothing was removed.');
+  if (!options.yes && !await ui.confirm(`Remove WTFM from this computer?`, false)) throw new Cancelled('Uninstall cancelled. Nothing was removed.');
 
   // One last anonymous count, so uninstalls show up beside installs. Only an
   // install that already reported (has an id, telemetry on) says goodbye; the
@@ -70,7 +70,7 @@ export async function uninstallCli(options, { installRoot, env = process.env, ho
     if ((await lstat(configDir)).isSymbolicLink()) fail('unsafe_configuration', `Keep the linked configuration path: ${clean(configDir)}`);
     await rm(configDir, { recursive: true, force: true });
   }
-  ui.ok('SupportPages Writer removed from this computer.');
+  ui.ok('WTFM removed from this computer.');
   if (keptConfig) ui.line(`Your sign-in and project bindings are kept in ${clean(configDir)}; delete it to forget them.`);
   ui.line('Restart existing coding-agent sessions to unload the removed integrations.');
   ui.line('To reinstall: curl -fsSL https://wtfm.sh/install | bash');

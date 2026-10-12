@@ -120,7 +120,7 @@ async function ensureIntegration(config, options, deps, skillsDir, session, { cl
   const choices=available.map(value=>({value,label:value==='codex'?'Codex':'Claude Code'}));
   if(available.length>1) choices.push({value:'both',label:'Both',hint:'Configure a model for each agent'});
   const initial=preferred.length===2 ? 'both' : preferred[0];
-  const client=options.agent ?? (requestedClients?.length===2 ? 'both' : requestedClients?.[0]) ?? (available.length===1 ? available[0] : await ui.choose(options.command==='setup' ? 'Which coding agents should use SupportPages Writer?' : 'Which coding agents should use SupportPages Writer in this project?',choices,Math.max(0,choices.findIndex(choice=>choice.value===initial))));
+  const client=options.agent ?? (requestedClients?.length===2 ? 'both' : requestedClients?.[0]) ?? (available.length===1 ? available[0] : await ui.choose(options.command==='setup' ? 'Which coding agents should use WTFM?' : 'Which coding agents should use WTFM in this project?',choices,Math.max(0,choices.findIndex(choice=>choice.value===initial))));
   const selectedClients=client==='both' ? available : [client];
   let installed=Boolean(await installation(config,installRoot));
   for(const selected of selectedClients) {
@@ -131,16 +131,16 @@ async function ensureIntegration(config, options, deps, skillsDir, session, { cl
   if(installed && checks.every(item=>item.available)) {
     if (selectedClients.includes('claude')) {
       const agent = await installClaudeWriter({ home: deps.home ?? os.homedir(), env: deps.env });
-      if (agent.changed) ui.line('Installed the SupportPages Writer agent for Claude Code. Restart existing Claude sessions to load it.');
+      if (agent.changed) ui.line('Installed the WTFM agent for Claude Code. Restart existing Claude sessions to load it.');
       const permission = await installClaudePermissions({ home: deps.home ?? os.homedir(), env: deps.env,
         name: config.dev ? 'supportpages-dev' : 'supportpages', configDir: config.configDir, backup, writeJson: privateJson });
-      if (permission.changed) ui.line("Allowed SupportPages Writer's tools in Claude Code; deleting or unpublishing an article still asks first.");
+      if (permission.changed) ui.line("Allowed WTFM's tools in Claude Code; deleting or unpublishing an article still asks first.");
     }
     const registered = await installation(config, installRoot);
     if (selectedClients.includes('codex')) await (deps.installCodex ?? installCodexIntegration)({ home: deps.home ?? os.homedir(), env: deps.env,
       name: config.dev ? 'supportpages-dev' : 'supportpages', configDir: config.configDir, backup, ui });
     const removed = await retirePublicSkillLinks({ home: deps.home ?? os.homedir(), clients:selectedClients, directory: registered.skills, env: deps.env });
-    if (removed.length) ui.line('Removed old SupportPages.io skill shortcuts. Restart existing coding-agent sessions to refresh their skill lists.');
+    if (removed.length) ui.line('Removed old WTFM skill shortcuts. Restart existing coding-agent sessions to refresh their skill lists.');
     ui.ok('Your coding-agent integration and renderer are already installed.');
     return {skillsDir,clients:selectedClients,restartRequired:removed.length > 0};
   }
@@ -148,8 +148,8 @@ async function ensureIntegration(config, options, deps, skillsDir, session, { cl
   if(missing.length) fail('missing_dependency',`Install Git with your system package manager, then rerun ${retry}. See ${LANDING_URL}#install.`);
   ui.line(`Coding agent: ${clientList(selectedClients)}`);
   const download=checks.some(item=>!item.available && item.name==='article renderer and Chromium');
-  if(download) ui.info?.('Article screenshots are taken in a browser that SupportPages Writer downloads once. The first download can take a few minutes.');
-  if(!await ui.confirm(`Add SupportPages Writer to ${clientList(selectedClients)}${download ? ' and download the screenshot browser' : ''}?`,true)) throw new Cancelled();
+  if(download) ui.info?.('Article screenshots are taken in a browser that WTFM downloads once. The first download can take a few minutes.');
+  if(!await ui.confirm(`Add WTFM to ${clientList(selectedClients)}${download ? ' and download the screenshot browser' : ''}?`,true)) throw new Cancelled();
   try {
     const result=await (deps.install ?? runInstaller)({client,dev:config.dev,'api-url':config.origin,'config-dir':config.configDir,
       'skills-dir':await exists(skillsDir) ? skillsDir : undefined,'skip-dependencies':true,embedded:true},deps);
@@ -467,9 +467,9 @@ async function configureProjectAgent(config, options, deps, installRoot, run, se
   const connected=await installedClients(config,installRoot,run);
   const unconnected=(await installedAgentCommands(run)).filter(agent=>!connected.includes(agent));
   if(!unconnected.length) return await configureAgent(session, deps);
-  const choice=await ui.choose('Which coding agent should SupportPages Writer use for this project?',[
+  const choice=await ui.choose('Which coding agent should WTFM use for this project?',[
     ...connected.map(agent=>({value:agent,label:clientLabel(agent)})),
-    ...unconnected.map(agent=>({value:agent,label:`${clientLabel(agent)} — not connected yet`,hint:'SupportPages Writer connects it now'})),
+    ...unconnected.map(agent=>({value:agent,label:`${clientLabel(agent)} — not connected yet`,hint:'WTFM connects it now'})),
   ],0);
   if(!connected.includes(choice)) {
     const integration=await ensureIntegration(config,options,deps,skillsDir,session,{clients:[...connected,choice]});
@@ -573,7 +573,7 @@ export async function runCli(options, supplied) {
       return result;
     }
     if(options.command==='login') {
-      ui.intro?.(`SupportPages Writer · Sign in${config.dev?' · Development':''}`);
+      ui.intro?.(`WTFM · Sign in${config.dev?' · Development':''}`);
       if(config.dev || config.origin!==defaultOrigin(config.dev)) ui.line(`Environment: ${config.origin}`);
       const result=await ensureLogin(session,deps,{scopes:options.scopes?.split(',')});
       if(result.already_signed_in) {
@@ -583,7 +583,7 @@ export async function runCli(options, supplied) {
       return result;
     }
     if(options.command==='setup') {
-      ui.intro?.(`SupportPages Writer · Set up this computer${config.dev?' · Development':''}`,{banner:true});
+      ui.intro?.(`WTFM · Set up this computer${config.dev?' · Development':''}`,{banner:true});
       const {integration,mode,already_signed_in,account:signedIn}=await computerSetup(config,options,deps,skillsDir,session);
       ui.step?.(3,'Ready',3);
       // The outro below says what to do next; the note only records what was set up.
@@ -659,7 +659,7 @@ export async function runCli(options, supplied) {
         ui.line(`Connection: ${clean(connectionLabel(result.connection.status))}`);
         ui.line(`Anonymous usage reporting: ${result.telemetry.enabled?'on':'off'} (${result.telemetry.reason})${result.telemetry.enabled?` · ${CLI_NAME} telemetry off to stop it`:''}`);
         for(const client of clientChecks) if(client.available && !client.registered && !(client.client==='claude' && plugin)) ui.line(`${clientLabel(client.client)} is installed but not connected. Run ${CLI_NAME} setup to connect it.`);
-        if(plugin) ui.line(clientChecks.find(client=>client.client==='claude')?.registered ? `Claude Code has the SupportPages Writer plugin and a separate registration, so its tools appear twice. Run ${CLI_NAME} remove --agent claude to keep only the plugin.` : 'Claude Code: SupportPages Writer plugin installed.');
+        if(plugin) ui.line(clientChecks.find(client=>client.client==='claude')?.registered ? `Claude Code has the WTFM plugin and a separate registration, so its tools appear twice. Run ${CLI_NAME} remove --agent claude to keep only the plugin.` : 'Claude Code: WTFM plugin installed.');
         if(checks.some(check=>!check.available) || !clientChecks.some(client=>client.registered)) ui.line(`Run ${CLI_NAME} setup to finish the integration; it downloads Chromium for screenshots if it is missing. Git and your coding agent must be available in your terminal.`);
       }
       return result;
@@ -667,7 +667,7 @@ export async function runCli(options, supplied) {
     if(options.command==='yolo') return await runYolo({session,config,options,deps,root,helpers:{ensureLogin,chooseHelpCentre,getStartedChoices,account,authCommand,
       saveProfile:(workspace,current)=>privateJson(profileFile(current.configDir,workspace),{version:1,workspace,origin:current.origin,dev:current.dev})}});
     if(options.command==='publish') {
-      ui.intro?.(`SupportPages Writer · Publish${config.dev?' · Development':''}`);
+      ui.intro?.(`WTFM · Publish${config.dev?' · Development':''}`);
       const initial=await session.bridge();
       const destination=await initial.destination();
       if(destination==='none') fail('project_required',`Run ${CLI_NAME} init to set up this folder first.`);
@@ -724,13 +724,13 @@ export async function runCli(options, supplied) {
     if(['analyse','write'].includes(options.command)) {
       const status = await session.status();
       if(!['ready','local'].includes(status.status)) fail(status.status==='setup_required'?'setup_required':'authentication_required',`Run ${CLI_NAME} init to set up this project first.`);
-      ui.intro?.(`SupportPages Writer · ${options.command}${config.dev?' · Development':''}`);
+      ui.intro?.(`WTFM · ${options.command}${config.dev?' · Development':''}`);
       if(options.command === 'write') {
         const bridge=await session.bridge();
         const decision=await resolveAction(bridge,'create_article');
         if(!decision.allowed) requireExecution(decision,decision.execution);
         if(decision.execution==='hosted') {
-          const title=await ui.ask('Which article should SupportPages write?',undefined,{validate:value=>value?.trim() ? undefined : 'Enter an article title.'});
+          const title=await ui.ask('Which article should SupportPages.io write?',undefined,{validate:value=>value?.trim() ? undefined : 'Enter an article title.'});
           const result=await bridge.createArticle({title,article_type:'how-to'});
           ui.line(`Operation ${result.operation_id}: ${result.status}`);
           if(result.review_url)ui.line(result.review_url);
@@ -743,7 +743,7 @@ export async function runCli(options, supplied) {
       return;
     }
     if (options.command === 'configure') {
-      ui.intro?.(`SupportPages Writer · This project${config.dev?' · Development':''}`);
+      ui.intro?.(`WTFM · This project${config.dev?' · Development':''}`);
       const bridge = await session.bridge();
       const destination = await bridge.destination();
       if (destination === 'none') fail('project_required', `Run ${CLI_NAME} init to set up this project before configuring it.`);
@@ -777,7 +777,7 @@ export async function runCli(options, supplied) {
       await privateJson(profileFile(config.configDir,root),{version:1,workspace:root,origin:config.origin,dev:config.dev});
       return session.status();
     }
-    const title=`SupportPages Writer · Set up this project${config.dev?' · Development':''}`;
+    const title=`WTFM · Set up this project${config.dev?' · Development':''}`;
     if(ui.intro) ui.intro(title,{banner:true});
     else ui.line(title);
     const initial=await session.bridge();
@@ -791,7 +791,7 @@ export async function runCli(options, supplied) {
     let clients=await installedClients(config,installRoot,run);
     let integration;
     if(!clients.length) {
-      ui.line('This computer is not set up for SupportPages Writer yet.');
+      ui.line('This computer is not set up for WTFM yet.');
       if(!await ui.confirm('Set it up now?',true)) throw new Cancelled(`Setup cancelled. Run ${CLI_NAME} setup when you are ready, then rerun ${CLI_NAME} init.`);
       const installed=await computerSetup(config,options,deps,skillsDir,session);
       integration=installed.integration; skillsDir=integration.skillsDir;

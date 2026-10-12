@@ -245,7 +245,7 @@ master,slave=pty.openpty()
 p=subprocess.Popen([sys.argv[1],sys.argv[2]],stdin=slave,stdout=slave,stderr=slave,env={**os.environ,'TERM':'dumb'})
 os.close(slave)
 buf=b''
-prompts=[(b'This computer is not set up for SupportPages Writer yet.',b'y\\r'),(b'Add SupportPages Writer to',b'y\\r'),(b'How would you like to get started?',b'3\\r'),(b'Where should finished articles go?',b'2\\r'),(b'Writing style',b'2\\r'),(b'Folder for finished articles',b'docs/help\\r'),(b'Change the Codex model?',b'n\\r'),(b'Run the analysis now with Codex?',b'y\\r')]
+prompts=[(b'This computer is not set up for WTFM yet.',b'y\\r'),(b'Add WTFM to',b'y\\r'),(b'How would you like to get started?',b'3\\r'),(b'Where should finished articles go?',b'2\\r'),(b'Writing style',b'2\\r'),(b'Folder for finished articles',b'docs/help\\r'),(b'Change the Codex model?',b'n\\r'),(b'Run the analysis now with Codex?',b'y\\r')]
 cursor=0
 deadline=time.time()+15
 try:

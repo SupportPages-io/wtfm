@@ -48,7 +48,7 @@ export class Planning {
     if (this.options.agent && !connected.includes(this.options.agent)) fail('agent_unavailable', `The selected coding agent is not installed and connected. Run ${CLI_NAME} init.`);
     const available = this.options.agent ? [this.options.agent] : connected;
     const models = await Promise.all(available.map(async agent => modelDescription(agent, await executionSettings(this.bridge, agent))));
-    this.ui.note?.(`SupportPages Writer reads this project once to map its screens, styles and branding, and writes a short product summary. Every article starts from it.\nIt runs in your coding agent with your existing account and takes about 5 minutes.\n\n${models.join('\n')}`, 'Project analysis');
+    this.ui.note?.(`WTFM reads this project once to map its screens, styles and branding, and writes a short product summary. Every article starts from it.\nIt runs in your coding agent with your existing account and takes about 5 minutes.\n\n${models.join('\n')}`, 'Project analysis');
     let agent;
     if (available.length === 1) {
       if (!await this.ui.confirm(`Run the analysis now with ${label(available[0])}?`, true)) return;

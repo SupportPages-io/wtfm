@@ -118,7 +118,7 @@ test('login runs one browser sign-in and saves the device credential without tou
     requests.push(url);
     if (url.endsWith('/pairings')) {
       const body = JSON.parse(init.body);
-      assert.equal(body.client_name, 'SupportPages Writer');
+      assert.equal(body.client_name, 'WTFM');
       // Every sign-in offers the full set; the approval page decides.
       assert.deepEqual(body.requested_scopes, ['read', 'import', 'projects:create', 'publish', 'manage', 'generate']);
       assert.ok(!body.workspace_name.includes('/'));

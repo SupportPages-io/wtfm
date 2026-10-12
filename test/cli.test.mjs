@@ -271,7 +271,7 @@ master,slave=pty.openpty()
 p=subprocess.Popen([sys.argv[1],sys.argv[2]],stdin=slave,stdout=slave,stderr=slave,env={**os.environ,'TERM':'dumb'})
 os.close(slave)
 buf=b''
-prompts=[(b'This computer is not set up for SupportPages Writer yet.',b'y\\r'),(b'Add SupportPages Writer to',b'y\\r'),(b'How would you like to get started?',b'1\\r'),(b'Write articles in the background when available?',b'y\\r'),(b'Open completed drafts in your browser?',b'y\\r'),(b'Where should finished articles go?',b'\\r'),(b'Choose a help centre',b'\\r'),(b'Connect this help centre?',b'y\\r'),(b'Writing style',b'\\r'),(b'Change the Codex model?',b'n\\r'),(b'Run the analysis now with Codex?',b'y\\r')]
+prompts=[(b'This computer is not set up for WTFM yet.',b'y\\r'),(b'Add WTFM to',b'y\\r'),(b'How would you like to get started?',b'1\\r'),(b'Write articles in the background when available?',b'y\\r'),(b'Open completed drafts in your browser?',b'y\\r'),(b'Where should finished articles go?',b'\\r'),(b'Choose a help centre',b'\\r'),(b'Connect this help centre?',b'y\\r'),(b'Writing style',b'\\r'),(b'Change the Codex model?',b'n\\r'),(b'Run the analysis now with Codex?',b'y\\r')]
 cursor=0
 deadline=time.time()+15
 try:
@@ -543,7 +543,7 @@ test('configure saves local model choices without account access and repeat init
   h.session.login = async () => ({ status: 'signed_in', account, already_signed_in: true });
   h.f.bridge.api.request = async () => structuredClone(context);
   h.deps.ui.choose = async (question, choices, index) => {
-    assert.ok(['Which coding agents should use SupportPages Writer in this project?', 'Claude Code model', 'Reasoning effort'].includes(question));
+    assert.ok(['Which coding agents should use WTFM in this project?', 'Claude Code model', 'Reasoning effort'].includes(question));
     return choices[index].value;
   };
   let launched;
@@ -657,7 +657,7 @@ test('init with an explicit agent switches the analysis agent without asking, an
   setup.deps.ui.choose = async (question, choices, index) => {
     if (question === 'How would you like to get started?') return 'local';
     if (/coding agents/i.test(question)) {
-      assert.equal(question, 'Which coding agents should use SupportPages Writer?', 'setup is computer-wide');
+      assert.equal(question, 'Which coding agents should use WTFM?', 'setup is computer-wide');
       return 'both';
     }
     return choices[index].value;
@@ -700,7 +700,7 @@ test('a computer without the integration is set up during init, selecting a sole
     await runCli(h.options,h.deps);
     assert.equal(asked,available.length===2);
     assert.equal(selected,available.length===1?available[0]:'both');
-    assert.match(h.logs.join('\n'),/This computer is not set up for SupportPages Writer yet/);
+    assert.match(h.logs.join('\n'),/This computer is not set up for WTFM yet/);
     assert.match(h.logs.join('\n'),/Ready to write/);
   }
   const h=await configuredCli(t,{managed:false});
@@ -924,11 +924,11 @@ test('configure offers an installed but unconnected coding agent and connects it
     asked.push({ question, choices: choices.map(c => c.value) });
     if (question === 'What would you like to configure?') return 'agent';
     // Pressing Enter keeps the current agent; choosing Codex connects it.
-    if (/Which coding agent should SupportPages Writer use/.test(question)) return 'codex';
+    if (/Which coding agent should WTFM use/.test(question)) return 'codex';
     return choices[index].value;
   };
   await runCli({ ...h.options, command: 'configure' }, h.deps);
-  const connection = asked.find(entry => /Which coding agent should SupportPages Writer use/.test(entry.question));
+  const connection = asked.find(entry => /Which coding agent should WTFM use/.test(entry.question));
   assert.deepEqual(connection.choices, ['claude', 'codex']);
   assert.equal(installed, 'both');
   const saved = await h.f.ws.json('.rtfm/supportpages/setup/settings.json');

@@ -50,7 +50,7 @@ done
 if [ "$sp_update" = true ] && [ -n "$sp_archive" ]; then echo '--update cannot be used with --archive.' >&2; exit 2; fi
 case "$sp_release_url" in https://*) ;; *) echo 'The release URL must use HTTPS.' >&2; exit 1 ;; esac
 sp_release_url="${sp_release_url%/}"
-case "$(uname -s)" in Darwin) sp_os=darwin ;; Linux) sp_os=linux ;; *) echo 'SupportPages Writer supports macOS and Linux. On Windows, use WSL.' >&2; exit 1 ;; esac
+case "$(uname -s)" in Darwin) sp_os=darwin ;; Linux) sp_os=linux ;; *) echo 'WTFM supports macOS and Linux. On Windows, use WSL.' >&2; exit 1 ;; esac
 case "$(uname -m)" in arm64|aarch64) sp_arch=arm64 ;; x86_64|amd64) sp_arch=x64 ;; *) echo 'Unsupported CPU architecture.' >&2; exit 1 ;; esac
 for sp_tool in tar awk sed; do command -v "$sp_tool" >/dev/null || { echo "Missing $sp_tool." >&2; exit 1; }; done
 if command -v sha256sum >/dev/null; then sp_hash=sha256sum
@@ -82,7 +82,7 @@ if [ "$sp_update" = false ] && [ -z "$sp_archive" ] && [ -z "$sp_version" ] && [
   if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || major === 22 && minor >= 12 ? 0 : 1)'; then
     echo 'Building from this checkout requires Node.js 22.12 or later.' >&2; exit 1
   fi
-  echo 'Source checkout detected. Building SupportPages Writer for this machine...'
+  echo 'Source checkout detected. Building WTFM for this machine...'
   node "$sp_source_root/scripts/build-release.mjs" --local --out "$sp_tmp/local" > "$sp_tmp/local-build"
   IFS= read -r sp_archive < "$sp_tmp/local-build"
   [ -n "$sp_archive" ] || { echo 'The local build did not produce an archive.' >&2; exit 1; }
@@ -97,20 +97,20 @@ if [ -n "$sp_archive" ]; then
   cp -- "$sp_archive" "$sp_tmp/bundle.tar.gz"
   cp -- "$sp_archive.sha256" "$sp_tmp/checksum"
 else
-  command -v curl >/dev/null || { echo 'curl is required to download SupportPages Writer.' >&2; exit 1; }
+  command -v curl >/dev/null || { echo 'curl is required to download WTFM.' >&2; exit 1; }
   case "$sp_release_url" in https://*) ;; *) echo 'The release URL must use HTTPS.' >&2; exit 1 ;; esac
   if [ -z "$sp_version" ]; then
     sp_latest=true
-    echo 'Checking the latest SupportPages Writer release…'
+    echo 'Checking the latest WTFM release…'
     sp_version="$(curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 "$sp_release_url/latest.txt")" || {
-      echo 'Could not download the latest SupportPages Writer release. To install from source, run ./install-cli.sh directly inside your checkout.' >&2; exit 1;
+      echo 'Could not download the latest WTFM release. To install from source, run ./install-cli.sh directly inside your checkout.' >&2; exit 1;
     }
   fi
 fi
 if ! printf '%s\n' "$sp_version" | LC_ALL=C awk 'NR != 1 || $0 !~ /^[0-9]+\.[0-9]+\.[0-9]+$/ {bad=1} END {exit bad || NR != 1}'; then echo 'Invalid release version.' >&2; exit 1; fi
 sp_filename="supportpages-$sp_version-$sp_os-$sp_arch.tar.gz"
 if [ -z "$sp_archive" ]; then
-  echo "Downloading SupportPages Writer $sp_version for $sp_os/${sp_arch}…"
+  echo "Downloading WTFM $sp_version for $sp_os/${sp_arch}…"
   curl --proto '=https' --proto-redir '=https' -fsSL --max-time 600 "$sp_release_url/$sp_version/$sp_filename" -o "$sp_tmp/bundle.tar.gz" || { echo 'Download failed. Retry the installer; your existing installation was kept.' >&2; exit 1; }
   curl --proto '=https' --proto-redir '=https' -fsSL --max-time 60 "$sp_release_url/$sp_version/$sp_filename.sha256" -o "$sp_tmp/checksum" || { echo 'Could not download the checksum. Retry the installer; your existing installation was kept.' >&2; exit 1; }
 fi
@@ -167,11 +167,11 @@ if { [ "$sp_update" = true ] || [ "$sp_latest" = true ]; } && [ -x "$sp_data_dir
     const [current, next] = process.argv.slice(1).map(v => v.split(".").map(BigInt));
     for (let i = 0; i < 3; i++) { if (current[i] !== next[i]) process.exit(current[i] > next[i] ? 1 : 0); }
   ' "$sp_current" "$sp_version"; then
-    echo "SupportPages Writer $sp_current is newer than the available release. No update needed."
+    echo "WTFM $sp_current is newer than the available release. No update needed."
     exit 0
   fi
 fi
-echo 'Installing SupportPages Writer…'
+echo 'Installing WTFM…'
 sp_stage="$(mktemp -d "$sp_data_dir/.stage.XXXXXX")"
 tar -xzf "$sp_tmp/bundle.tar.gz" -C "$sp_stage"
 sp_package="$sp_stage/supportpages"
@@ -248,7 +248,7 @@ case ":${PATH:-}:" in
       IFS= read -r sp_answer <&3 || sp_answer=n
       case "$sp_answer" in ''|y|Y|yes|YES)
         if [ -L "$sp_profile" ]; then echo 'Shell config is a symlink; add the PATH line below manually.'
-        elif printf '\n# SupportPages Writer\n%s\n' "$sp_path_line" >> "$sp_profile"; then sp_path_saved=true
+        elif printf '\n# WTFM\n%s\n' "$sp_path_line" >> "$sp_profile"; then sp_path_saved=true
         else echo 'Could not change shell configuration; add the PATH line below manually.'; fi ;;
       esac
     fi
@@ -259,7 +259,7 @@ case ":${PATH:-}:" in
     fi ;;
 esac
 if [ "$sp_update" = true ]; then
-  printf '\nSupportPages Writer %s installed.\n' "$sp_version"
+  printf '\nWTFM %s installed.\n' "$sp_version"
   if [ -n "$sp_path_note" ]; then printf '\n%s\n' "$sp_path_note"; fi
   printf '\nRestart running coding-agent sessions to use the updated integration.\n'
   return 0

@@ -249,14 +249,14 @@ test('the setup banner fits a 60-column terminal and stays off narrow or plain s
   assert.ok(logo({ columns: 55 }));
   assert.equal(stripVTControlCharacters(logo({ color: true })), art);
   const wide = terminal(t);
-  wide.ui.intro('SupportPages Writer · Set up this computer', { banner: true });
+  wide.ui.intro('WTFM · Set up this computer', { banner: true });
   assert.ok(wide.text().includes(art));
   const narrow = terminal(t);
   narrow.output.columns = 50;
-  narrow.ui.intro('SupportPages Writer · Set up this computer', { banner: true });
+  narrow.ui.intro('WTFM · Set up this computer', { banner: true });
   assert.ok(!narrow.text().includes('░▀▀▀░') && narrow.text().includes('Set up this computer'));
   const plain = terminal(t, { TERM: 'dumb' });
-  plain.ui.intro('SupportPages Writer · Set up this computer', { banner: true });
+  plain.ui.intro('WTFM · Set up this computer', { banner: true });
   assert.ok(!plain.text().includes('░▀▀▀░'));
 });
 

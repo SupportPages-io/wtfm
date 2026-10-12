@@ -1,4 +1,4 @@
-name: SupportPages Writer CI
+name: WTFM CI
 
 on:
   pull_request:

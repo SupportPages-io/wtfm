@@ -43,7 +43,7 @@ export class Pairing {
    * `installId` is the anonymous telemetry id; when given it is sent so the server
    * can link this machine's usage to the account that approves. A server too old
    * to know the field rejects the whole body, so that case retries once without it. */
-  async start(label: string, options: { client: 'SupportPages Writer' | 'SupportPages Writer MCP'; installId?: string }) {
+  async start(label: string, options: { client: 'WTFM' | 'WTFM MCP'; installId?: string }) {
     const device = [...label.replace(/[\p{Cc}\p{Cf}]/gu, '').trim()].slice(0, 100).join('') || 'This device';
     this.requestedScopes = [...REQUIRED_SCOPES, ...OPTIONAL_SCOPES];
     const body = (installId?: string) => ({ client_name: options.client, workspace_name: device,

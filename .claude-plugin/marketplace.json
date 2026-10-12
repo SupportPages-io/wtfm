@@ -1,7 +1,7 @@
 {
   "name": "supportpages",
   "owner": { "name": "SupportPages", "url": "https://supportpages.io" },
-  "description": "SupportPages Writer: illustrated help articles written by your coding agent from your codebase.",
+  "description": "WTFM by SupportPages.io: illustrated help articles written by your coding agent from your codebase.",
   "plugins": [
     {
       "name": "supportpages-writer",

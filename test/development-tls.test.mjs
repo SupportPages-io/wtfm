@@ -29,7 +29,7 @@ test('API and sign-in report certificate failures without leaking raw diagnostic
     const fetcher = async () => { throw Object.assign(new Error('private request secret'), { cause: { code: reason, message: 'private proxy secret' } }); };
     const api = new ApiClient('https://app.lvh.me:3443', 'private token', fetcher, true);
     const pairing = new Pairing('https://app.lvh.me:3443', true, { fetcher, now: Date.now, sleep: async () => {} });
-    for (const operation of [() => api.request('GET', '/projects'), () => pairing.start('test', { client: 'SupportPages Writer', publish: false })]) {
+    for (const operation of [() => api.request('GET', '/projects'), () => pairing.start('test', { client: 'WTFM', publish: false })]) {
       await assert.rejects(operation(), error => {
         assert.equal(error.code, 'certificate_error');
         assert.match(error.message, message);

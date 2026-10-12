@@ -112,7 +112,7 @@ export async function removeIntegration(options, { home = os.homedir(), env = pr
       const filename = path.join(client === 'claude' ? claudeDir : codexDir, 'agents', `supportpages-io.${client === 'claude' ? 'md' : 'toml'}`);
       const contents = await read(filename);
       const marker = client === 'claude' ? '<!-- Managed by SupportPages: article writer v1 -->' : '# Managed by SupportPages: article writer v1';
-      if (contents?.includes(marker)) { removals.push(filename); descriptions.push(`${client === 'claude' ? 'Claude Code' : 'Codex'} SupportPages Writer agent`); }
+      if (contents?.includes(marker)) { removals.push(filename); descriptions.push(`${client === 'claude' ? 'Claude Code' : 'Codex'} WTFM agent`); }
     }
     if (clients.includes('claude')) {
       const filename = path.join(claudeDir, 'settings.json');
@@ -132,7 +132,7 @@ export async function removeIntegration(options, { home = os.homedir(), env = pr
             ? { ...group, hooks: group.hooks.filter(item => !ours(item.command)) } : group)
             .filter(group => !Array.isArray(group.hooks) || group.hooks.length);
         }
-        if (JSON.stringify(settings) !== before) { edits.set(filename, settings); descriptions.push('SupportPages.io Claude permissions and unused trace hook'); }
+        if (JSON.stringify(settings) !== before) { edits.set(filename, settings); descriptions.push('WTFM Claude permissions and unused trace hook'); }
       }
     }
   }
@@ -142,11 +142,11 @@ export async function removeIntegration(options, { home = os.homedir(), env = pr
   const links = new Set();
   for (const args of skillOptions) for (const filename of await retirePublicSkillLinks({ ...args, dryRun: true })) links.add(filename);
   descriptions.push(...[...links].map(filename => `Skill shortcut: ${filename}`));
-  if (!descriptions.length && !edits.size) { ui.ok('No managed SupportPages Writer integration found to remove.'); return { status: 'unchanged' }; }
-  ui.intro?.('SupportPages Writer · Remove integration');
+  if (!descriptions.length && !edits.size) { ui.ok('No managed WTFM integration found to remove.'); return { status: 'unchanged' }; }
+  ui.intro?.('WTFM · Remove integration');
   for (const description of descriptions) ui.line(clean(description));
-  ui.line('Projects, article files, saved repository links, downloaded engines, saved credentials and SupportPages Writer will be kept.');
-  if (!options.yes && !await ui.confirm(options['skills-only'] ? 'Remove these SupportPages.io skill shortcuts?' : 'Remove these SupportPages Writer integrations?', false)) throw new Cancelled('Removal cancelled. Your integration was kept.');
+  ui.line('Projects, article files, saved repository links, downloaded engines, saved credentials and WTFM will be kept.');
+  if (!options.yes && !await ui.confirm(options['skills-only'] ? 'Remove these WTFM skill shortcuts?' : 'Remove these WTFM integrations?', false)) throw new Cancelled('Removal cancelled. Your integration was kept.');
   // Do not overwrite edits made while the user reviewed the removal list.
   for (const [filename, before] of snapshots) {
     let current;
@@ -161,7 +161,7 @@ export async function removeIntegration(options, { home = os.homedir(), env = pr
   for (const [filename, value] of edits) { await backup(filename, path.join(configDir, 'backups')); await privateJson(filename, value); }
   for (const args of skillOptions) await retirePublicSkillLinks(args);
   for (const filename of removals) { await backup(filename, path.join(configDir, 'backups')); await rm(filename, { force: true }); }
-  ui.ok(options['skills-only'] ? 'SupportPages.io skill shortcuts removed.' : 'SupportPages Writer integrations removed.');
+  ui.ok(options['skills-only'] ? 'WTFM skill shortcuts removed.' : 'WTFM integrations removed.');
   ui.line('Restart existing coding-agent sessions to unload the removed integrations and cached skills.');
   return { status: 'removed' };
 }

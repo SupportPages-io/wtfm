@@ -151,5 +151,5 @@ test('the CLI exposes uninstall unattended, refuses it from a source checkout, a
     assert.equal(invalid.status, 2, args.join(' '));
   }
   const help = spawnSync(process.execPath, ['scripts/cli.mjs', '--help'], { encoding: 'utf8', env });
-  assert.match(help.stdout, /uninstall\s+Remove SupportPages Writer from this computer/);
+  assert.match(help.stdout, /uninstall\s+Remove WTFM from this computer/);
 });

@@ -34,7 +34,7 @@ export async function retirePublicSkillLinks({ home, clients, directory, previou
 }
 
 /** Earlier releases linked ~/.rtfm-skills at the managed skills copy. Remove that
- * link when it points into SupportPages Writer's own data directory; a link to
+ * link when it points into WTFM's own data directory; a link to
  * a separate skills checkout belongs to that checkout and is left alone. */
 export async function retireManagedAnchor({ home, dataDir }) {
   const anchor = path.join(home, '.rtfm-skills');
