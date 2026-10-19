@@ -1,10 +1,10 @@
 {
   "name": "supportpages",
-  "owner": { "name": "SupportPages", "url": "https://supportpages.io" },
-  "description": "WTFM by SupportPages.io: illustrated help articles written by your coding agent from your codebase.",
+  "owner": { "name": "SupportPages.io", "url": "https://supportpages.io" },
+  "description": "WTFM by SupportPages.io: your coding agent writes the user docs from your codebase, screenshots included.",
   "plugins": [
     {
-      "name": "supportpages-writer",
+      "name": "wtfm",
       "description": "Your coding agent writes the user docs from your codebase, screenshots included.",
       "source": { "source": "url", "url": "https://github.com/SupportPages-io/wtfm.git", "ref": "plugin" },
       "homepage": "https://github.com/SupportPages-io/wtfm#readme",

@@ -128,7 +128,7 @@ Configure once in the terminal, then do everything else in your coding agent.
 wtfm setup
 ```
 
-This connects Claude Code and/or Codex, adds the SupportPages writer to them and
+This connects Claude Code and/or Codex, adds the SupportPages.io writer to them and
 downloads the screenshot renderer. When it asks how you want to work, choose
 **Save articles in my projects without an account**.
 

@@ -258,15 +258,18 @@ test('global dev installation persists the environment without a workspace', asy
   assert.ok(!args.includes('--workspace'));
 });
 
-test('setup leaves Claude to an installed WTFM plugin instead of registering it twice', async t => {
-  const f = await fixture(t);
-  await mkdir(path.join(f.home, '.claude/plugins'), { recursive: true });
-  await writeFile(path.join(f.home, '.claude/plugins/installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'supportpages-writer@supportpages': [{ scope: 'user', version: '0.1.16' }] } }));
-  const result = await runInstaller({ ...f.options, yes: true, client: 'both', 'skip-skills': true }, f.deps);
-  assert.deepEqual(result.clients, ['codex']);
-  assert.ok(!f.calls.some(call => call.cmd === 'claude' && call.args.includes('add')), 'no Claude MCP registration');
-  assert.ok(f.logs.some(line => /already has the WTFM plugin/.test(line)));
-});
+// supportpages-writer is the plugin's earlier name, kept by installs made under it.
+for (const id of ['wtfm@supportpages', 'supportpages-writer@supportpages']) {
+  test(`setup leaves Claude to an installed WTFM plugin (${id}) instead of registering it twice`, async t => {
+    const f = await fixture(t);
+    await mkdir(path.join(f.home, '.claude/plugins'), { recursive: true });
+    await writeFile(path.join(f.home, '.claude/plugins/installed_plugins.json'), JSON.stringify({ version: 2, plugins: { [id]: [{ scope: 'user', version: '0.1.16' }] } }));
+    const result = await runInstaller({ ...f.options, yes: true, client: 'both', 'skip-skills': true }, f.deps);
+    assert.deepEqual(result.clients, ['codex']);
+    assert.ok(!f.calls.some(call => call.cmd === 'claude' && call.args.includes('add')), 'no Claude MCP registration');
+    assert.ok(f.logs.some(line => /already has the WTFM plugin/.test(line)));
+  });
+}
 
 test('inside setup and init the installer keeps paths, file names and permission rules out of the wizard', async t => {
   const f = await fixture(t);

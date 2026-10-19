@@ -97,8 +97,8 @@ test('plugin sessions launch the namespaced writer agent', () => {
   const probe = "import('./dist/writer-agent.js').then(m => console.log(JSON.stringify([m.writerSubagentType, m.writerLaunchInstruction.includes('subagent_type=\"' + m.writerSubagentType + '\"')])))";
   const plain = spawnSync(process.execPath, ['-e', probe], { encoding: 'utf8', env: { ...process.env, SUPPORTPAGES_PLUGIN: '' } });
   assert.deepEqual(JSON.parse(plain.stdout), ['supportpages-io', true]);
-  const plugin = spawnSync(process.execPath, ['-e', probe], { encoding: 'utf8', env: { ...process.env, SUPPORTPAGES_PLUGIN: 'supportpages-writer' } });
-  assert.deepEqual(JSON.parse(plugin.stdout), ['supportpages-writer:supportpages-io', true]);
+  const plugin = spawnSync(process.execPath, ['-e', probe], { encoding: 'utf8', env: { ...process.env, SUPPORTPAGES_PLUGIN: 'wtfm' } });
+  assert.deepEqual(JSON.parse(plugin.stdout), ['wtfm:supportpages-io', true]);
 });
 
 test('the mcp command starts the stdio server through the package command', async () => {

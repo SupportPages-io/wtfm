@@ -132,7 +132,7 @@ test('a failed integration removal stops before any file is deleted', async t =>
 test('unmanaged, unmarked and plugin installations are refused', async t => {
   const f = await fixture(t);
   await assert.rejects(uninstallCli(f.options, { ...f.deps, env: {} }), { code: 'unmanaged_installation' });
-  await assert.rejects(uninstallCli(f.options, { ...f.deps, env: { ...f.deps.env, SUPPORTPAGES_PLUGIN: 'supportpages-writer' } }), { code: 'plugin_installation' });
+  await assert.rejects(uninstallCli(f.options, { ...f.deps, env: { ...f.deps.env, SUPPORTPAGES_PLUGIN: 'wtfm' } }), { code: 'plugin_installation' });
   const g = await fixture(t, { marker: false });
   await assert.rejects(uninstallCli(g.options, g.deps), { code: 'invalid_installation' });
   await present(f.root); await present(g.root);
