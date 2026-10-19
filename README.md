@@ -298,6 +298,22 @@ without losing the drafts already written.
   `--dangerously-bypass-approvals-and-sandbox` for Codex). Writing articles uses the
   agent's normal approval prompts.
 
+### Plugin hooks
+
+Installed as a Claude Code plugin, WTFM registers two hooks. Neither sends anything
+over the network except the Chromium download, and neither can block or change a
+tool call.
+
+- **`SessionStart`** checks whether Chromium for screenshots is installed. If it
+  isn't, it starts puppeteer's Chromium download in the background, once, and
+  returns straight away without printing anything into the session.
+- **`PostToolUse`** runs after every tool call, but does nothing unless an article
+  is being written (a `.rtfm-trace/CURRENT` marker in your project). During a run it
+  appends one line per tool call to `.rtfm-trace/<article>.ndjson` in your project:
+  the time, tool name, file path, search pattern and the first 500 characters of a
+  shell command. The trace stays on your computer and is used to spot repeated
+  work in a run. It prints nothing and always exits successfully.
+
 ### Anonymous usage counts and crash reports
 
 WTFM tells us how many installs are in use and when something breaks, so we
