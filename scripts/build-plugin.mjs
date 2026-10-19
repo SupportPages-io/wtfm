@@ -15,7 +15,7 @@
 //
 // Usage: node scripts/build-plugin.mjs --out <directory> [--skip-modules]
 //   --skip-modules  leave out node_modules (faster tests of the rest of the tree)
-import { build } from 'esbuild';
+import { build, transform } from 'esbuild';
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -23,7 +23,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { exists } from './lib/install.mjs';
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PACKAGE_FILES = ['dist', 'engine', 'scripts', 'LICENSE', 'NOTICE', 'README.md'];
+const PACKAGE_FILES = ['dist', 'engine', 'scripts', 'LICENSE', 'NOTICE'];
+// Release tooling runs only in CI. Shipped, it reads like the plugin handling
+// release credentials.
+const RELEASE_SCRIPTS = ['build-plugin.mjs', 'build-release.mjs', 'check-release.mjs', 'publish-release.mjs', 'smoke-release.mjs'];
 
 // Bundled ESM packages: entry name -> import specifier. Their own imports of
 // other packages here stay external, so each package exists once.
@@ -49,6 +52,35 @@ const englishOnly = {
     builder.onLoad({ filter: /zod[\\/]v4[\\/]locales[\\/]index\.js$/ }, () => ({ contents: "export { default as en } from './en.js';", loader: 'js' }));
   },
 };
+
+/**
+ * Remove whole-line comments, keeping @license blocks. The code is only
+ * rewritten when esbuild reads both versions as the same program.
+ */
+async function withoutComments(code) {
+  const kept = [];
+  let block = null;
+  for (const line of code.split('\n')) {
+    const trimmed = line.trim();
+    if (block) {
+      block.push(line);
+      if (trimmed.endsWith('*/')) {
+        if (block.some(item => item.includes('@license'))) kept.push(...block);
+        block = null;
+      } else if (trimmed.includes('*/')) return code;
+    } else if (trimmed.startsWith('/*') && !trimmed.startsWith('/*#')) {
+      const close = trimmed.indexOf('*/', 2);
+      if (close < 0) block = [line];
+      else if (trimmed.includes('@license')) kept.push(line);
+      else if (trimmed.slice(close + 2).trim()) kept.push(line.slice(0, line.indexOf('/*')) + trimmed.slice(close + 2).trimStart());
+    } else if (!trimmed.startsWith('//')) kept.push(line);
+  }
+  if (block) return code;
+  const stripped = kept.join('\n');
+  const program = async text => (await transform(text, { loader: 'js', format: 'esm', target: 'esnext', minifyWhitespace: true, legalComments: 'none' })).code;
+  try { return await program(stripped) === await program(code) ? stripped : code; }
+  catch { return code; }
+}
 
 const readJson = async file => JSON.parse(await readFile(file, 'utf8'));
 const packageOf = input => input.match(/node_modules\/((?:@[^/]+\/)?[^/]+)\/(?!.*node_modules\/)/)?.[1];
@@ -98,13 +130,22 @@ async function buildModules(root, out) {
   }
   for (const name of COPIED) {
     const from = path.join(source, name);
-    await cp(from, path.join(target, name), {
+    const to = path.join(target, name);
+    await cp(from, to, {
       recursive: true,
       filter: file => {
         const relative = path.relative(from, file).split(path.sep).join('/');
         return !/^(src|node_modules|lib\/es5-iife)(\/|$)/.test(relative) && !/\.(d\.ts|map|md)$/.test(relative);
       },
     });
+    // Drop comments (keeping licence headers): their example and issue URLs
+    // read to the plugin directory's review as hosts the code contacts.
+    for (const file of await readdir(to, { recursive: true })) {
+      if (!/\.m?js$/.test(file)) continue;
+      const code = await readFile(path.join(to, file), 'utf8');
+      const stripped = await withoutComments(code);
+      if (stripped !== code) await writeFile(path.join(to, file), stripped);
+    }
   }
   return bundled;
 }
@@ -145,9 +186,17 @@ export async function buildPlugin({ out, root = repositoryRoot, modules = true }
   for (const name of PACKAGE_FILES) {
     await cp(path.join(root, name), path.join(out, name), {
       recursive: true,
-      filter: file => path.basename(file) !== 'package-lock.json' && (!/\.(d\.ts|map)$/.test(file) || !file.startsWith(path.join(root, 'dist'))),
+      filter: file => path.basename(file) !== 'package-lock.json'
+        && !(path.dirname(file) === path.join(root, 'scripts') && RELEASE_SCRIPTS.includes(path.basename(file)))
+        && (!/\.(d\.ts|map)$/.test(file) || !file.startsWith(path.join(root, 'dist'))),
     });
   }
+  // The plugin's own README (no standalone installer), with the main README's
+  // privacy section so the two cannot disagree.
+  const readme = await readFile(path.join(root, 'README.md'), 'utf8');
+  const privacy = readme.match(/^## Privacy\n[\s\S]*?(?=^## )/m)?.[0].trim();
+  if (!privacy) throw Error('README.md has no ## Privacy section.');
+  await writeFile(path.join(out, 'README.md'), (await readFile(path.join(out, 'README.md'), 'utf8')).replace('<!-- privacy -->', privacy));
   // Manifests keep only what Node and the server read: the version, and the
   // module type (ESM for dist/; the engine's scripts stay CommonJS). Without a
   // dependency list they do not read as something to npm install.

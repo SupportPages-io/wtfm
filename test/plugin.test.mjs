@@ -85,6 +85,15 @@ test('the plugin tree stays inside the plugin directory limits', async t => {
   }
   assert.equal((await json(path.join(out, 'package.json'))).type, 'module');
 
+  // The directory's review reads release tooling, an installer pipe beside the
+  // token reader, and URLs in comments as credentials leaving the machine.
+  assert.deepEqual(own.filter(file => /(build|check|publish|smoke)-release|build-plugin/.test(path.basename(file))).map(file => path.relative(out, file)), []);
+  const readme = await readFile(path.join(out, 'README.md'), 'utf8');
+  assert.doesNotMatch(readme, /curl|<!-- privacy -->/);
+  assert.match(readme, /^## Privacy$/m);
+  assert.match(readme, /^\/plugin install wtfm --marketplace SupportPages-io\/wtfm$/m);
+  assert.doesNotMatch(await readFile(path.join(out, 'node_modules/puppeteer-core/lib/puppeteer/api/ElementHandle.js'), 'utf8'), /example\.com/);
+
   // The listing icon: a square PNG of 512-2048 px, under 2 MB.
   const icon = await readFile(path.join(out, '.claude-plugin/icon.png'));
   assert.equal(icon.subarray(1, 4).toString(), 'PNG');
