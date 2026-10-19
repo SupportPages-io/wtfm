@@ -9,20 +9,28 @@ import { writerAgentFile } from '../dist/writer-agent.js';
 
 const json = async file => JSON.parse(await readFile(file, 'utf8'));
 
-async function findSymlinks(directory) {
-  const found = [];
+async function walk(directory) {
+  const found = { files: [], symlinks: [] };
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const file = path.join(directory, entry.name);
-    if (entry.isSymbolicLink()) found.push(file);
-    else if (entry.isDirectory()) found.push(...await findSymlinks(file));
+    if (entry.isSymbolicLink()) found.symlinks.push(file);
+    else if (entry.isDirectory()) {
+      const inner = await walk(file);
+      found.files.push(...inner.files);
+      found.symlinks.push(...inner.symlinks);
+    } else found.files.push(file);
   }
   return found;
 }
 
-test('the plugin tree carries the built server, engine, generated writer agent and matching manifests', async t => {
+async function builtPlugin(t, options = {}) {
   const out = await mkdtemp(path.join(os.tmpdir(), 'supportpages-plugin-'));
   t.after(() => rm(out, { recursive: true, force: true }));
-  const { version } = await buildPlugin({ out, install: false });
+  return { out, ...await buildPlugin({ out, ...options }) };
+}
+
+test('the plugin tree carries the built server, engine, generated writer agent and matching manifests', async t => {
+  const { out, version } = await builtPlugin(t, { modules: false });
   const pkg = await json('package.json');
   const plugin = await json(path.join(out, '.claude-plugin/plugin.json'));
   assert.equal(version, pkg.version);
@@ -53,7 +61,36 @@ test('the plugin tree carries the built server, engine, generated writer agent a
     assert.ok((await lstat(path.join(out, name))).isFile(), name);
   }
   // npm drops symlinks from packages, and the same engine ships through npm.
-  assert.deepEqual(await findSymlinks(path.join(out, 'engine')), []);
+  assert.deepEqual((await walk(path.join(out, 'engine'))).symlinks, []);
+});
+
+test('the plugin tree stays inside the plugin directory limits', async t => {
+  const { out } = await builtPlugin(t);
+  const { files, symlinks } = await walk(out);
+  // Exceeding any of these holds every release for manual review.
+  assert.ok(files.length <= 512, `${files.length} files; the limit is 512`);
+  const large = [];
+  for (const file of files) if ((await lstat(file)).size > 256 * 1024) large.push(path.relative(out, file));
+  assert.deepEqual(large, [], 'files over 256 KiB');
+  assert.deepEqual(symlinks.map(file => path.relative(out, file)), []);
+  assert.deepEqual(files.filter(file => /\.(d\.ts|map)$/.test(file) || path.basename(file) === '.DS_Store').map(file => path.relative(out, file)), []);
+  assert.match(await readFile(path.join(out, 'THIRD_PARTY_LICENSES.txt'), 'utf8'), /^zod@\S+ \(MIT\)$/m);
+});
+
+test('every dependency in the plugin tree loads from its rebuilt node_modules', async t => {
+  const { out } = await builtPlugin(t);
+  // Includes the BiDi path puppeteer imports lazily, and the Chromium installer's dependencies.
+  const specifiers = ['zod', 'zod/v3', 'zod/v4', 'zod/v4-mini', 'zod/v4/core', '@modelcontextprotocol/sdk/server/mcp.js',
+    '@modelcontextprotocol/sdk/server/stdio.js', 'marked', '@clack/prompts', '@puppeteer/browsers', 'chromium-bidi', 'ws',
+    'lilconfig', 'puppeteer', 'puppeteer-core', 'puppeteer-core/internal/bidi/bidi.js', 'puppeteer/internal/node/install.js'];
+  const probe = `for (const s of ${JSON.stringify(specifiers)}) await import(s);
+    const z = (await import('zod')).z; z.string().parse('ok');
+    if (typeof (await import('puppeteer')).default.launch !== 'function') throw Error('puppeteer.launch');`;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', probe], { cwd: out, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  // The engine's renderer resolves puppeteer from its own location, as CommonJS.
+  const renderer = spawnSync(process.execPath, ['-e', "const p = require(require('path').join(process.argv[1], 'node_modules/puppeteer')); if (!p.launch) process.exit(1)", out], { cwd: path.join(out, 'engine/generate-illustrated-article'), encoding: 'utf8' });
+  assert.equal(renderer.status, 0, renderer.stderr);
 });
 
 test('plugin sessions launch the namespaced writer agent', () => {
