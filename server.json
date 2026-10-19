@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.supportpages-io/supportpages-writer",
+  "name": "io.github.SupportPages-io/wtfm",
   "title": "WTFM",
-  "description": "Your coding agent writes illustrated help articles from your codebase, with screenshots rendered from the real interface code.",
+  "description": "Your coding agent writes the user docs from your codebase, screenshots included.",
   "repository": {
     "url": "https://github.com/SupportPages-io/wtfm",
     "source": "github"
   },
-  "version": "0.5.4",
+  "version": "0.5.5",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@supportpages.io/wtfm",
-      "version": "0.5.4",
+      "version": "0.5.5",
       "transport": {
         "type": "stdio"
       },

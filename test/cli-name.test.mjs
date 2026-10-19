@@ -21,8 +21,11 @@ test('the command is wtfm, supportpages stays an alias, and both brand modules a
   assert.equal(pkg.bin.wtfm, 'scripts/cli.mjs');
   assert.equal(pkg.bin.supportpages, 'scripts/cli.mjs');
   assert.equal(pkg.name, '@supportpages.io/wtfm');
-  // The MCP Registry name is persisted and unchanged.
-  assert.equal(pkg.mcpName, 'io.github.supportpages-io/supportpages-writer');
+  // The registry matches the GitHub org login case-sensitively, so the namespace
+  // must be spelled SupportPages-io. The name was never published before 0.5.5.
+  assert.equal(pkg.mcpName, 'io.github.SupportPages-io/wtfm');
+  const server = JSON.parse(await readFile(path.join(root, 'server.json'), 'utf8'));
+  assert.equal(server.name, pkg.mcpName);
 });
 
 test('wtfm --help and supportpages --help both work and the help names wtfm', async t => {
