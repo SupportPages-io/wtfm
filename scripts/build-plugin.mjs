@@ -23,7 +23,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { exists } from './lib/install.mjs';
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PACKAGE_FILES = ['dist', 'engine', 'scripts', 'package.json', 'package-lock.json', 'LICENSE', 'NOTICE', 'README.md'];
+const PACKAGE_FILES = ['dist', 'engine', 'scripts', 'LICENSE', 'NOTICE', 'README.md'];
 
 // Bundled ESM packages: entry name -> import specifier. Their own imports of
 // other packages here stay external, so each package exists once.
@@ -141,8 +141,22 @@ export async function buildPlugin({ out, root = repositoryRoot, modules = true }
   await writeFile(path.join(out, 'agents', `${writerAgentType}.md`), writerAgentFile);
 
   // Types and source maps are for development; nothing loads them at runtime.
+  // Nothing is installed from the tree either, so no lockfiles.
   for (const name of PACKAGE_FILES) {
-    await cp(path.join(root, name), path.join(out, name), { recursive: true, filter: file => !/\.(d\.ts|map)$/.test(file) || !file.startsWith(path.join(root, 'dist')) });
+    await cp(path.join(root, name), path.join(out, name), {
+      recursive: true,
+      filter: file => path.basename(file) !== 'package-lock.json' && (!/\.(d\.ts|map)$/.test(file) || !file.startsWith(path.join(root, 'dist'))),
+    });
+  }
+  // Manifests keep only what Node and the server read: the version, and the
+  // module type (ESM for dist/; the engine's scripts stay CommonJS). Without a
+  // dependency list they do not read as something to npm install.
+  await writeFile(path.join(out, 'package.json'), JSON.stringify({ name: pkg.name, version: pkg.version, private: true, license: pkg.license, type: pkg.type }, null, 2) + '\n');
+  for (const skill of await readdir(path.join(out, 'engine'), { withFileTypes: true })) {
+    const manifest = path.join(out, 'engine', skill.name, 'package.json');
+    if (!skill.isDirectory() || !await exists(manifest)) continue;
+    const { name, version, type } = await readJson(manifest);
+    await writeFile(manifest, JSON.stringify({ name, version, private: true, ...(type && { type }) }, null, 2) + '\n');
   }
 
   if (modules) await writeLicenses(root, out, await buildModules(root, out));
