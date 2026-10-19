@@ -75,6 +75,22 @@ test('the plugin tree stays inside the plugin directory limits', async t => {
   assert.deepEqual(symlinks.map(file => path.relative(out, file)), []);
   assert.deepEqual(files.filter(file => /\.(d\.ts|map)$/.test(file) || path.basename(file) === '.DS_Store').map(file => path.relative(out, file)), []);
   assert.match(await readFile(path.join(out, 'THIRD_PARTY_LICENSES.txt'), 'utf8'), /^zod@\S+ \(MIT\)$/m);
+
+  // Nothing installs from the tree, so it must not look like a package to install.
+  const own = files.filter(file => !path.relative(out, file).startsWith('node_modules' + path.sep));
+  assert.deepEqual(own.filter(file => path.basename(file) === 'package-lock.json').map(file => path.relative(out, file)), []);
+  for (const file of own.filter(file => path.basename(file) === 'package.json')) {
+    const manifest = await json(file);
+    assert.deepEqual(Object.keys(manifest).filter(key => /dependencies|scripts|bin/i.test(key)), [], path.relative(out, file));
+  }
+  assert.equal((await json(path.join(out, 'package.json'))).type, 'module');
+
+  // The listing icon: a square PNG of 512-2048 px, under 2 MB.
+  const icon = await readFile(path.join(out, '.claude-plugin/icon.png'));
+  assert.equal(icon.subarray(1, 4).toString(), 'PNG');
+  const [width, height] = [icon.readUInt32BE(16), icon.readUInt32BE(20)];
+  assert.ok(width === height && width >= 512 && width <= 2048, `${width}x${height}`);
+  assert.ok(icon.length < 2 * 1024 * 1024);
 });
 
 test('every dependency in the plugin tree loads from its rebuilt node_modules', async t => {

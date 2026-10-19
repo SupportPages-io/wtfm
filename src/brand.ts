@@ -4,5 +4,4 @@
 // derived from this. Mirrors scripts/lib/brand.mjs; a test keeps them equal.
 export const CLI_NAME = 'wtfm';
 export const LEGACY_CLI_NAME = 'supportpages';
-export const INSTALL_COMMAND = 'curl -fsSL https://wtfm.sh/install | bash';
 export const LANDING_URL = 'https://supportpages.io/wtfm';
