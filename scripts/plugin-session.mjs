@@ -18,7 +18,7 @@ import { ensureRenderer, rendererReady } from './lib/renderer.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const engine = path.join(root, 'engine');
-const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.tmpdir(), 'supportpages-writer');
+const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.tmpdir(), 'wtfm');
 const lockFile = path.join(dataDir, 'chromium-download.lock');
 const STALE_MS = 30 * 60 * 1000;
 const quiet = (cmd, args, options = {}) => command(cmd, args, { ...options, capture: true });

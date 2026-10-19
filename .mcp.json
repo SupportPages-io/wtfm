@@ -3,7 +3,7 @@
     "supportpages": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.js"],
-      "env": { "SUPPORTPAGES_PLUGIN": "supportpages-writer" }
+      "env": { "SUPPORTPAGES_PLUGIN": "wtfm" }
     }
   }
 }

@@ -1,10 +1,10 @@
 {
-  "name": "supportpages-writer",
+  "name": "wtfm",
   "displayName": "WTFM",
   "description": "Your coding agent writes the user docs from your codebase, screenshots included.",
   "version": "0.5.5",
   "author": {
-    "name": "SupportPages",
+    "name": "SupportPages.io",
     "url": "https://supportpages.io"
   },
   "homepage": "https://github.com/SupportPages-io/wtfm#readme",
