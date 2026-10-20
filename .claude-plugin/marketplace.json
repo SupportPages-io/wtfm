@@ -6,7 +6,7 @@
     {
       "name": "wtfm",
       "description": "Your coding agent writes the user docs from your codebase, screenshots included.",
-      "source": { "source": "url", "url": "https://github.com/SupportPages-io/wtfm.git", "ref": "plugin" },
+      "source": { "source": "url", "url": "https://github.com/SupportPages-io/wtfm.git", "ref": "claude-plugin" },
       "homepage": "https://github.com/SupportPages-io/wtfm#readme",
       "license": "Apache-2.0"
     }

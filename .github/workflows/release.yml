@@ -123,8 +123,9 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLI_RELEASE_R2_SECRET_ACCESS_KEY }}
         run: node scripts/publish-release.mjs --directory release
 
-  # The marketplace on main installs the plugin from the `plugin` branch, which
-  # holds a built tree: Claude Code and Codex copy it as-is and build nothing.
+  # The marketplace on main installs the plugin from the `claude-plugin` branch,
+  # which holds a built tree: Claude Code copies it, builds nothing, and installs
+  # the production dependencies from its package.json and lockfile.
   plugin:
     if: ${{ github.event_name == 'push' || inputs.publish }}
     needs: publish
@@ -142,18 +143,18 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
       - run: npm run build
-      - name: Build the plugin tree on the plugin branch
+      - name: Build the plugin tree on the claude-plugin branch
         run: |
-          git fetch origin plugin || true
-          if git show-ref --verify --quiet refs/remotes/origin/plugin; then
-            git worktree add plugin-branch origin/plugin
+          git fetch origin claude-plugin || true
+          if git show-ref --verify --quiet refs/remotes/origin/claude-plugin; then
+            git worktree add plugin-branch origin/claude-plugin
           else
             git worktree add --detach plugin-branch
-            git -C plugin-branch checkout --orphan plugin
+            git -C plugin-branch checkout --orphan claude-plugin
             git -C plugin-branch rm -rfq . || true
           fi
           node scripts/build-plugin.mjs --out plugin-branch
-      - name: Commit and push the plugin branch
+      - name: Commit and push the claude-plugin branch
         env:
           REF: ${{ github.ref_name }}
         run: |
@@ -161,8 +162,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -q -m "Plugin build for $REF" || { echo "The plugin branch is already up to date"; exit 0; }
-          git push origin HEAD:refs/heads/plugin
+          git commit -q -m "Plugin build for $REF" || { echo "The claude-plugin branch is already up to date"; exit 0; }
+          git push origin HEAD:refs/heads/claude-plugin
 
   # npm publishes through trusted publishing: npm trusts this workflow's OIDC
   # token, so there is no NPM_TOKEN. The trusted publisher on npmjs.com must name

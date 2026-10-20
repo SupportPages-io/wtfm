@@ -37,10 +37,10 @@ test('the plugin tree carries the built server, engine, generated writer agent a
   assert.equal(plugin.version, pkg.version);
   assert.equal(plugin.license, pkg.license);
 
-  // The marketplace on main installs this plugin by name from the plugin branch.
+  // The marketplace on main installs this plugin by name from the claude-plugin branch.
   const marketplace = await json('.claude-plugin/marketplace.json');
   assert.deepEqual(marketplace.plugins.map(entry => entry.name), [plugin.name]);
-  assert.equal(marketplace.plugins[0].source.ref, 'plugin');
+  assert.equal(marketplace.plugins[0].source.ref, 'claude-plugin');
 
   // Plugin agents are namespaced <plugin>:<agent>; the server is told the plugin name.
   const server = (await json(path.join(out, '.mcp.json'))).mcpServers.supportpages;

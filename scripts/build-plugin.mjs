@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// Assemble the installable plugin tree that the `plugin` branch publishes.
+// Assemble the installable Claude Code plugin tree that the `claude-plugin`
+// branch publishes.
 //
 // Claude Code installs plugins by copying a git checkout and then installing
 // the dependencies from package.json and package-lock.json (`npm ci
 // --ignore-scripts`). It does not build TypeScript, so the tree ships compiled
 // dist/ and the engine. Chromium is not included: the plugin's SessionStart
-// hook downloads it on first use. Codex installs no dependencies, so its
-// supported route is the npm package.
+// hook downloads it on first use. Codex installs no dependencies, so it
+// needs a tree of its own; until then its supported route is the npm package.
 //
 // Usage: node scripts/build-plugin.mjs --out <directory>
 import { spawnSync } from 'node:child_process';
