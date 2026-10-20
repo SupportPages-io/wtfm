@@ -53,7 +53,15 @@ screenshots beside it.
 - **`wtfm yolo` writes on SupportPages.io** from the repository you connect there;
   it is the only command that gives SupportPages.io access to your code.
 - **Credentials** are stored in private files under `~/.config/supportpages`, never in
-  your repository.
+  your repository. Signing in also saves your account email there, to show which
+  account is connected.
+- **Other network requests carry none of your code or articles.** Chromium for
+  screenshots downloads from Google's Chrome for Testing storage, and the plugin's
+  packages install from the npm registry. When a project's own styles can't be
+  compiled, analysis fetches its CSS framework (Bootstrap, Bulma or Foundation) from
+  the jsDelivr CDN, and a mockup with no project styles loads Tailwind from its CDN
+  while rendering. An article's optional generated images use OpenAI only if you
+  have set your own `OPENAI_API_KEY`; WTFM never sets it.
 - **Project analysis runs unattended.** `init` and `analyse` start your agent with its
   permission prompts off (`--dangerously-skip-permissions` for Claude Code,
   `--dangerously-bypass-approvals-and-sandbox` for Codex). Writing articles uses the
