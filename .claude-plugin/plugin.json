@@ -9,6 +9,10 @@
   },
   "homepage": "https://github.com/SupportPages-io/wtfm#readme",
   "repository": "https://github.com/SupportPages-io/wtfm",
+  "documentationUrl": "https://help.wtfm.sh/",
+  "supportUrl": "https://github.com/SupportPages-io/wtfm/issues",
+  "privacyPolicyUrl": "https://supportpages.io/legal/privacy",
+  "termsOfServiceUrl": "https://supportpages.io/legal/terms",
   "license": "Apache-2.0",
   "keywords": [
     "documentation",
