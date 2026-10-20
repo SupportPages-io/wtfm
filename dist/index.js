@@ -30,7 +30,7 @@ try {
         const session = new Session({ workspace: values.workspace ?? process.env.RTFM_WORKSPACE,
             projectDir: process.env.CLAUDE_PROJECT_DIR, cwd: process.cwd(), origin, dev,
             configDir,
-            tokenFile: values['token-file'] ?? process.env.SUPPORTPAGES_API_TOKEN_FILE, token: process.env.SUPPORTPAGES_API_TOKEN,
+            tokenFile: values['token-file'],
             skillsDir });
         if (values.doctor)
             process.stdout.write(JSON.stringify(await (await session.bridge()).doctor(), null, 2) + '\n');
