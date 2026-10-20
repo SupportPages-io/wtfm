@@ -30,7 +30,7 @@ async function builtPlugin(t, options = {}) {
 }
 
 test('the plugin tree carries the built server, engine, generated writer agent and matching manifests', async t => {
-  const { out, version } = await builtPlugin(t, { modules: false });
+  const { out, version } = await builtPlugin(t);
   const pkg = await json('package.json');
   const plugin = await json(path.join(out, '.claude-plugin/plugin.json'));
   assert.equal(version, pkg.version);
@@ -74,25 +74,26 @@ test('the plugin tree stays inside the plugin directory limits', async t => {
   assert.deepEqual(large, [], 'files over 256 KiB');
   assert.deepEqual(symlinks.map(file => path.relative(out, file)), []);
   assert.deepEqual(files.filter(file => /\.(d\.ts|map)$/.test(file) || path.basename(file) === '.DS_Store').map(file => path.relative(out, file)), []);
-  assert.match(await readFile(path.join(out, 'THIRD_PARTY_LICENSES.txt'), 'utf8'), /^zod@\S+ \(MIT\)$/m);
 
-  // Nothing installs from the tree, so it must not look like a package to install.
-  const own = files.filter(file => !path.relative(out, file).startsWith('node_modules' + path.sep));
-  assert.deepEqual(own.filter(file => path.basename(file) === 'package-lock.json').map(file => path.relative(out, file)), []);
-  for (const file of own.filter(file => path.basename(file) === 'package.json')) {
-    const manifest = await json(file);
-    assert.deepEqual(Object.keys(manifest).filter(key => /dependencies|scripts|bin/i.test(key)), [], path.relative(out, file));
+  // Claude Code installs the dependencies; bundling them made the directory's scan time out.
+  assert.deepEqual(files.filter(file => path.relative(out, file).split(path.sep).includes('node_modules')), []);
+  assert.deepEqual(files.filter(file => path.basename(file) === 'package-lock.json').map(file => path.relative(out, file)), ['package-lock.json']);
+  for (const file of files.filter(file => path.basename(file) === 'package.json' && path.dirname(file) !== out)) {
+    assert.deepEqual(Object.keys(await json(file)).filter(key => /dependencies|scripts|bin/i.test(key)), [], path.relative(out, file));
   }
-  assert.equal((await json(path.join(out, 'package.json'))).type, 'module');
+  const pkg = await json('package.json');
+  const manifest = await json(path.join(out, 'package.json'));
+  assert.equal(manifest.type, 'module');
+  assert.deepEqual(manifest.dependencies, pkg.dependencies);
+  assert.equal(manifest.scripts, undefined);
 
   // The directory's review reads release tooling, an installer pipe beside the
   // token reader, and URLs in comments as credentials leaving the machine.
-  assert.deepEqual(own.filter(file => /(build|check|publish|smoke)-release|build-plugin/.test(path.basename(file))).map(file => path.relative(out, file)), []);
+  assert.deepEqual(files.filter(file => /(build|check|publish|smoke)-release|build-plugin/.test(path.basename(file))).map(file => path.relative(out, file)), []);
   const readme = await readFile(path.join(out, 'README.md'), 'utf8');
   assert.doesNotMatch(readme, /curl|<!-- privacy -->/);
   assert.match(readme, /^## Privacy$/m);
   assert.match(readme, /^\/plugin install wtfm --marketplace SupportPages-io\/wtfm$/m);
-  assert.doesNotMatch(await readFile(path.join(out, 'node_modules/puppeteer-core/lib/puppeteer/api/ElementHandle.js'), 'utf8'), /example\.com/);
 
   // The listing icon: a square PNG of 512-2048 px, under 2 MB.
   const icon = await readFile(path.join(out, '.claude-plugin/icon.png'));
@@ -102,19 +103,31 @@ test('the plugin tree stays inside the plugin directory limits', async t => {
   assert.ok(icon.length < 2 * 1024 * 1024);
 });
 
-test('every dependency in the plugin tree loads from its rebuilt node_modules', async t => {
+test('the lockfile installs exactly the production dependencies, as Claude Code requires', async t => {
   const { out } = await builtPlugin(t);
-  // Includes the BiDi path puppeteer imports lazily, and the Chromium installer's dependencies.
-  const specifiers = ['zod', 'zod/v3', 'zod/v4', 'zod/v4-mini', 'zod/v4/core', '@modelcontextprotocol/sdk/server/mcp.js',
-    '@modelcontextprotocol/sdk/server/stdio.js', 'marked', '@clack/prompts', '@puppeteer/browsers', 'chromium-bidi', 'ws',
-    'lilconfig', 'puppeteer', 'puppeteer-core', 'puppeteer-core/internal/bidi/bidi.js', 'puppeteer/internal/node/install.js'];
+  const manifest = await json(path.join(out, 'package.json'));
+  const lock = await json(path.join(out, 'package-lock.json'));
+  // Claude Code skips the install when the two list different dependencies.
+  const { name, version, license, ...listed } = lock.packages[''];
+  assert.deepEqual(listed, { dependencies: manifest.dependencies, engines: manifest.engines });
+  assert.deepEqual(Object.entries(lock.packages).filter(([, entry]) => entry.dev || entry.link || entry.inBundle).map(([key]) => key), []);
+  for (const [key, entry] of Object.entries(lock.packages)) {
+    if (key) assert.ok(entry.version && entry.resolved?.startsWith('https://registry.npmjs.org/') && entry.integrity, key);
+  }
+});
+
+test('every dependency loads once installed the way Claude Code installs it', async t => {
+  const { out } = await builtPlugin(t);
+  const install = spawnSync('npm', ['ci', '--ignore-scripts', '--workspaces=false', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: out, encoding: 'utf8' });
+  assert.equal(install.status, 0, install.stderr);
+  const specifiers = ['zod', '@modelcontextprotocol/sdk/server/mcp.js', '@modelcontextprotocol/sdk/server/stdio.js', 'marked', '@clack/prompts',
+    '@puppeteer/browsers', 'yauzl', 'puppeteer', 'puppeteer/internal/node/install.js'];
   const probe = `for (const s of ${JSON.stringify(specifiers)}) await import(s);
-    const z = (await import('zod')).z; z.string().parse('ok');
     if (typeof (await import('puppeteer')).default.launch !== 'function') throw Error('puppeteer.launch');`;
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', probe], { cwd: out, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   // The engine's renderer resolves puppeteer from its own location, as CommonJS.
-  const renderer = spawnSync(process.execPath, ['-e', "const p = require(require('path').join(process.argv[1], 'node_modules/puppeteer')); if (!p.launch) process.exit(1)", out], { cwd: path.join(out, 'engine/generate-illustrated-article'), encoding: 'utf8' });
+  const renderer = spawnSync(process.execPath, ['-e', "if (!require('puppeteer').launch) process.exit(1)"], { cwd: path.join(out, 'engine/generate-illustrated-article'), encoding: 'utf8' });
   assert.equal(renderer.status, 0, renderer.stderr);
 });
 

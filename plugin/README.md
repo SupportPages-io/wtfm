@@ -26,8 +26,9 @@ In earlier versions:
 ```
 
 **You'll need** macOS or Linux (on Windows, use WSL), Git, and Node.js 22.12 or later
-on your `PATH`. Chromium for screenshots downloads in the background the first time
-a session starts.
+with npm on your `PATH`. Claude Code installs the plugin's npm packages when you install
+it, without running their install scripts. Chromium for screenshots downloads in the
+background the first time a session starts.
 
 ## Quick start
 
@@ -47,6 +48,4 @@ screenshots beside it.
 ## License
 
 [Apache 2.0](LICENSE). The UI stylesheets bundled under `engine/` keep their own
-licenses; see [NOTICE](NOTICE). Packages bundled into `node_modules/` are listed with
-their licenses in [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt). The license
-doesn't cover the SupportPages name or logo.
+licenses; see [NOTICE](NOTICE). The license doesn't cover the SupportPages name or logo.
