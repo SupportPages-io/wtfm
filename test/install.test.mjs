@@ -208,6 +208,16 @@ test('server startup reads the saved credential and refuses an origin mismatch e
   assert.ok(!(wrong.stdout+wrong.stderr).includes(token));
 });
 
+test('server startup ignores token environment variables; only the saved sign-in counts',async t=>{
+  const f=await fixture(t),file=path.join(f.root,'loose-token.json');
+  await privateJson(file,{version:1,api_origin:origin,token});
+  const args=['dist/index.js','--workspace',f.workspace,'--skills-dir',f.skills,'--config-dir',f.config,'--doctor'];
+  const result=spawnSync(process.execPath,args,{encoding:'utf8',env:{...process.env,SUPPORTPAGES_API_TOKEN:token,SUPPORTPAGES_API_TOKEN_FILE:file,SUPPORTPAGES_TELEMETRY:'0'}});
+  assert.equal(result.status,0,result.stderr);
+  assert.equal(JSON.parse(result.stdout).credentials_configured,false);
+  assert.ok(!(result.stdout+result.stderr).includes(token));
+});
+
 
 test('global installer never requests credentials or binds the install directory', async t => {
   const f = await fixture(t);
