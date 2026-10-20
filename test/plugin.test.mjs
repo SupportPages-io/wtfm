@@ -95,10 +95,11 @@ test('the plugin tree stays inside the plugin directory limits', async t => {
   assert.match(readme, /^## Privacy$/m);
   assert.match(readme, /^\/plugin install wtfm --marketplace SupportPages-io\/wtfm$/m);
 
-  // Embedded fonts use the data URL form the review reads as a font.
+  // framework7's embedded font is wrapped: the review holds words it cannot check.
   const framework7 = await readFile(path.join(out, 'engine/detect-project/assets/mobileui/framework7-core.css'), 'utf8');
   assert.doesNotMatch(framework7, /font-woff;charset|base64, /);
-  assert.match(framework7, /url\(data:font\/woff;base64,d09GRg/);
+  assert.match(framework7, /url\('data:font\/woff;base64,\\\nd09GRg/);
+  assert.ok(framework7.split('\n').every(line => line.length <= 2000), 'a line over 2,000 characters');
 
   // The listing icon: a square PNG of 512-2048 px, under 2 MB.
   const icon = await readFile(path.join(out, '.claude-plugin/icon.png'));

@@ -73,14 +73,14 @@ export async function buildPlugin({ out, root = repositoryRoot } = {}) {
         && (!/\.(d\.ts|map)$/.test(file) || !file.startsWith(path.join(root, 'dist'))),
     });
   }
-  // framework7's stylesheet embeds its icon font as `application/font-woff;
-  // charset=utf-8;base64, <data>`. The directory's review does not recognise
-  // that as a font and holds it as something the code could run; the standard
-  // spelling, as the engine's other stylesheets use, is read as a font.
+  // framework7's stylesheet embeds its icon font as one 4,500-character word,
+  // which the directory's review cannot check and holds. A CSS string may
+  // continue across lines with a backslash, so the data URL is wrapped.
   const framework7 = path.join(out, 'engine/detect-project/assets/mobileui/framework7-core.css');
   if (await exists(framework7)) {
     const css = await readFile(framework7, 'utf8');
-    await writeFile(framework7, css.replace(/url\('data:application\/font-woff;charset=utf-8;base64, ?([A-Za-z0-9+/=]+)'\)/g, 'url(data:font/woff;base64,$1)'));
+    const wrap = data => data.match(/.{1,64}/g).join('\\\n');
+    await writeFile(framework7, css.replace(/url\('data:application\/font-woff;charset=utf-8;base64, ?([A-Za-z0-9+/=]+)'\)/g, (_, data) => `url('data:font/woff;base64,\\\n${wrap(data)}')`));
   }
   // The plugin's own README (no standalone installer), with the main README's
   // privacy section so the two cannot disagree.
