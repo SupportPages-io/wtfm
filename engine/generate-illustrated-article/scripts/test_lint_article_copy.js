@@ -136,3 +136,39 @@ assert.equal(check.result.status,0,JSON.stringify(check.report));
 generatedLabel.string = 'Delete everything';
 check = run(howTo(section('create','Click **Delete everything**.',{has_image:true})),{viewSources:generatedSources,files:generatedFiles});
 assert.equal(check.result.status,1,'unverified generated claims must not enter the copy corpus');
+
+// Title framing follows the content language in RTFM_CONTEXT_FILE.
+{
+    const ctxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rtfm-copy-locale-'));
+    const ctx = locale => { const file = path.join(ctxDir, `${locale}.json`); fs.writeFileSync(file, JSON.stringify({ content_locale: locale })); return { RTFM_CONTEXT_FILE: file }; };
+    const framing = check => check.report.global_warnings.filter(warning => warning.startsWith('how-to title'));
+    const french = { ...howTo(), title: 'Comment envoyer un message' };
+
+    assert.deepEqual(framing(run(howTo())), []);
+    assert.deepEqual(framing(run(french)), ['how-to title should start with "How to"']);
+    assert.deepEqual(framing(run(french, { env: ctx('fr') })), []);
+    assert.deepEqual(framing(run(howTo(), { env: ctx('fr') })), ['how-to title should start with "Comment"']);
+    assert.deepEqual(framing(run({ ...howTo(), title: 'Eine Nachricht senden' }, { env: ctx('de') })), []);
+    fs.rmSync(ctxDir, { recursive: true, force: true });
+}
+console.log('lint_article_copy content-language tests passed');
+
+// A French article quotes the product's French labels: the target-locale file
+// listed in partials_expanded grounds them; a label the model translated itself does not.
+{
+    const files = {
+        'app/views/projects/new.html.erb': '<%= form.submit t(".create") %>',
+        'config/locales/fr.yml': 'fr:\n  projects:\n    new:\n      create: Créer le projet\n',
+        'config/locales/en.yml': 'en:\n  projects:\n    new:\n      create: Create project\n',
+    };
+    const viewSources = { blocks: [{ block_id: 'create', primary_view: 'app/views/projects/new.html.erb',
+        partials_expanded: ['config/locales/fr.yml'],
+        verbatim_evidence: [{ string: 'Créer le projet', found_in: 'config/locales/fr.yml' }] }] };
+    const french = content => ({ ...howTo(section('create', content, { has_image: true })), title: 'Comment créer un projet' });
+
+    check = run(french('Cliquez sur **Créer le projet**.'), { viewSources, files });
+    assert.equal(check.result.status, 0, JSON.stringify(check.report));
+    check = run(french('Cliquez sur **Créer un nouveau projet**.'), { viewSources, files });
+    assert.equal(check.result.status, 1, 'a self-translated label must not pass as a source label');
+}
+console.log('lint_article_copy translated-label tests passed');
