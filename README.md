@@ -105,6 +105,22 @@ Chromium for screenshots is downloaded the first time you run `wtfm setup`.
 Run `wtfm update` to update now, or set `SUPPORTPAGES_AUTO_UPDATE=0` to turn
 automatic updates off.
 
+### Install in Codex
+
+WTFM is also a Codex plugin. You'll need Node.js 22.12 or later with npm on your
+`PATH`.
+
+```sh
+codex plugin marketplace add SupportPages-io/wtfm
+codex plugin add wtfm@supportpages
+```
+
+Then start a new Codex session. The first time the plugin starts, it installs its npm
+packages (without running their install scripts) and downloads Chromium for
+screenshots in the background. Codex asks you to review the plugin's two hooks in
+`/hooks` before they run; WTFM works without them. To update, run
+`codex plugin add wtfm@supportpages` again.
+
 ### Build from source
 
 You'll need Node.js 22.12 or later, npm and Git.

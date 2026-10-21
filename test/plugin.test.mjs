@@ -137,6 +137,54 @@ test('every dependency loads once installed the way Claude Code installs it', as
   assert.equal(renderer.status, 0, renderer.stderr);
 });
 
+test('the same tree installs in Codex under the same names', async t => {
+  const { out, version } = await builtPlugin(t);
+  const claude = await json(path.join(out, '.claude-plugin/plugin.json'));
+  const codex = await json(path.join(out, '.codex-plugin/plugin.json'));
+  assert.equal(codex.name, claude.name);
+  assert.equal(codex.version, version);
+  assert.equal(codex.description, claude.description);
+  assert.equal(codex.interface.displayName, 'WTFM');
+  assert.ok(codex.interface.shortDescription.length <= 30);
+
+  // The marketplace on main installs it from the claude-plugin branch, as Claude Code's does.
+  const marketplace = await json('.agents/plugins/marketplace.json');
+  assert.equal(marketplace.name, (await json('.claude-plugin/marketplace.json')).name);
+  assert.deepEqual(marketplace.plugins.map(entry => [entry.name, entry.source.ref]), [[codex.name, 'claude-plugin']]);
+
+  // Every path the manifest names starts with ./ and exists in the tree.
+  const paths = [codex.skills, codex.mcpServers, codex.hooks, codex.interface.composerIcon, codex.interface.logo, ...codex.interface.screenshots];
+  for (const relative of paths) {
+    assert.match(relative, /^\.\//);
+    await lstat(path.join(out, relative));
+  }
+  assert.ok((await lstat(path.join(out, codex.skills, 'supportpages/SKILL.md'))).isFile());
+
+  // Codex keeps the server key and runs the launcher from the plugin root.
+  const server = (await json(path.join(out, codex.mcpServers))).mcpServers.supportpages;
+  assert.deepEqual([server.command, server.cwd, server.env.SUPPORTPAGES_PLUGIN], ['node', '.', claude.name]);
+  assert.ok((await lstat(path.join(out, server.args[0]))).isFile());
+});
+
+test('the Codex launcher installs the dependencies on the first start, then serves the tools', async t => {
+  const { out } = await builtPlugin(t);
+  const server = (await json(path.join(out, '.codex-mcp.json'))).mcpServers.supportpages;
+  const messages = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } } },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+  ].map(message => JSON.stringify(message)).join('\n') + '\n';
+  const home = await mkdtemp(path.join(os.tmpdir(), 'supportpages-codex-home-'));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const result = spawnSync(process.execPath, server.args, { cwd: path.join(out, server.cwd), input: messages, encoding: 'utf8', timeout: 240_000,
+    env: { ...process.env, ...server.env, HOME: home, SUPPORTPAGES_TELEMETRY: '0' } });
+  const replies = result.stdout.trim().split('\n').map(line => JSON.parse(line));
+  const tools = replies.find(reply => reply.id === 2)?.result.tools.map(tool => tool.name);
+  assert.ok(tools?.includes('supportpages_create_article'), result.stderr);
+  assert.ok(tools.every(name => name.startsWith('supportpages_')));
+  assert.ok((await lstat(path.join(out, 'node_modules/@modelcontextprotocol/sdk/package.json'))).isFile());
+});
+
 test('plugin sessions launch the namespaced writer agent', () => {
   const probe = "import('./dist/writer-agent.js').then(m => console.log(JSON.stringify([m.writerSubagentType, m.writerLaunchInstruction.includes('subagent_type=\"' + m.writerSubagentType + '\"')])))";
   const plain = spawnSync(process.execPath, ['-e', probe], { encoding: 'utf8', env: { ...process.env, SUPPORTPAGES_PLUGIN: '' } });

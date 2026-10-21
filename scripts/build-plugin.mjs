@@ -6,8 +6,9 @@
 // the dependencies from package.json and package-lock.json (`npm ci
 // --ignore-scripts`). It does not build TypeScript, so the tree ships compiled
 // dist/ and the engine. Chromium is not included: the plugin's SessionStart
-// hook downloads it on first use. Codex installs no dependencies, so it
-// needs a tree of its own; until then its supported route is the npm package.
+// hook downloads it on first use. Codex installs the same tree but no
+// dependencies: its MCP entry runs scripts/codex-mcp.mjs, which installs them
+// from the shipped lockfile on the first start.
 //
 // Usage: node scripts/build-plugin.mjs --out <directory>
 import { spawnSync } from 'node:child_process';
@@ -54,9 +55,18 @@ export async function buildPlugin({ out, root = repositoryRoot } = {}) {
   for (const name of await readdir(out)) if (name !== '.git') await rm(path.join(out, name), { recursive: true, force: true });
 
   await cp(path.join(root, 'plugin'), out, { recursive: true });
-  const manifest = path.join(out, '.claude-plugin/plugin.json');
-  const plugin = await readJson(manifest);
-  await writeFile(manifest, JSON.stringify({ ...plugin, version: pkg.version }, null, 2) + '\n');
+  // Codex reads .codex-plugin/ and .codex-mcp.json; Claude Code ignores both.
+  for (const file of ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json']) {
+    const manifest = path.join(out, file);
+    const plugin = await readJson(manifest);
+    await writeFile(manifest, JSON.stringify({ ...plugin, version: pkg.version }, null, 2) + '\n');
+  }
+  // The Codex listing's screenshots, from the README's examples.
+  const codex = await readJson(path.join(out, '.codex-plugin/plugin.json'));
+  for (const screenshot of codex.interface.screenshots) {
+    await mkdir(path.dirname(path.join(out, screenshot)), { recursive: true });
+    await cp(path.join(root, 'docs/images', path.basename(screenshot)), path.join(out, screenshot));
+  }
 
   // The writer subagent, from the same definition the CLI installs.
   const { writerAgentFile, writerAgentType } = await import(pathToFileURL(path.join(root, 'dist/writer-agent.js')).href);
