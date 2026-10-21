@@ -4,7 +4,7 @@
   "plugins": [
     {
       "name": "wtfm",
-      "source": { "source": "url", "url": "https://github.com/SupportPages-io/wtfm.git", "ref": "claude-plugin" },
+      "source": { "source": "url", "url": "https://github.com/SupportPages-io/wtfm.git", "ref": "codex-plugin" },
       "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
       "category": "Developer Tools"
     }

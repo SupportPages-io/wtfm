@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { buildPlugin } from '../scripts/build-plugin.mjs';
+import { exists } from '../scripts/lib/install.mjs';
 import { writerAgentFile } from '../dist/writer-agent.js';
 
 const json = async file => JSON.parse(await readFile(file, 'utf8'));
@@ -137,9 +138,9 @@ test('every dependency loads once installed the way Claude Code installs it', as
   assert.equal(renderer.status, 0, renderer.stderr);
 });
 
-test('the same tree installs in Codex under the same names', async t => {
-  const { out, version } = await builtPlugin(t);
-  const claude = await json(path.join(out, '.claude-plugin/plugin.json'));
+test('the Codex tree installs under the same names, from its own branch', async t => {
+  const { out, version } = await builtPlugin(t, { target: 'codex' });
+  const claude = await json('plugin/.claude-plugin/plugin.json');
   const codex = await json(path.join(out, '.codex-plugin/plugin.json'));
   assert.equal(codex.name, claude.name);
   assert.equal(codex.version, version);
@@ -147,10 +148,20 @@ test('the same tree installs in Codex under the same names', async t => {
   assert.equal(codex.interface.displayName, 'WTFM');
   assert.ok(codex.interface.shortDescription.length <= 30);
 
-  // The marketplace on main installs it from the claude-plugin branch, as Claude Code's does.
+  // The marketplace on main installs it from the codex-plugin branch, as Claude Code's does from claude-plugin.
   const marketplace = await json('.agents/plugins/marketplace.json');
   assert.equal(marketplace.name, (await json('.claude-plugin/marketplace.json')).name);
-  assert.deepEqual(marketplace.plugins.map(entry => [entry.name, entry.source.ref]), [[codex.name, 'claude-plugin']]);
+  assert.deepEqual(marketplace.plugins.map(entry => [entry.name, entry.source.ref]), [[codex.name, 'codex-plugin']]);
+
+  // Each tree carries only its own client's files; the engine's unit tests stay out of Codex's.
+  for (const name of ['.claude-plugin', 'agents']) assert.equal(await exists(path.join(out, name)), false, name);
+  assert.deepEqual((await walk(path.join(out, 'engine'))).files.filter(file => /^test_/.test(path.basename(file))), []);
+  const claudeTree = await builtPlugin(t);
+  for (const name of ['.codex-plugin', 'codex', 'scripts/codex-mcp.mjs', 'SECURITY.md']) assert.equal(await exists(path.join(claudeTree.out, name)), false, name);
+  assert.ok(await exists(path.join(claudeTree.out, 'engine/generate-illustrated-article/scripts/test_render_ready.js')));
+  const readme = await readFile(path.join(out, 'README.md'), 'utf8');
+  assert.match(readme, /^## Privacy$/m);
+  assert.match(readme, /^codex plugin add wtfm@supportpages$/m);
 
   // Every path the manifest names starts with ./ and exists in the tree.
   const paths = [codex.skills, codex.mcpServers, codex.hooks, codex.interface.composerIcon, codex.interface.logo, ...codex.interface.screenshots];
@@ -167,8 +178,8 @@ test('the same tree installs in Codex under the same names', async t => {
 });
 
 test('the Codex launcher installs the dependencies on the first start, then serves the tools', async t => {
-  const { out } = await builtPlugin(t);
-  const server = (await json(path.join(out, '.codex-mcp.json'))).mcpServers.supportpages;
+  const { out } = await builtPlugin(t, { target: 'codex' });
+  const server = (await json(path.join(out, '.mcp.json'))).mcpServers.supportpages;
   const messages = [
     { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } } },
     { jsonrpc: '2.0', method: 'notifications/initialized' },

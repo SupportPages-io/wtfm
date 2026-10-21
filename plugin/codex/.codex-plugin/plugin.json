@@ -16,7 +16,7 @@
     "mcp"
   ],
   "skills": "./scripts/skills/",
-  "mcpServers": "./.codex-mcp.json",
+  "mcpServers": "./.mcp.json",
   "hooks": "./hooks/hooks.json",
   "interface": {
     "displayName": "WTFM",
@@ -37,8 +37,8 @@
       "Write an illustrated guide to inviting a teammate.",
       "What support articles do we have?"
     ],
-    "composerIcon": "./.claude-plugin/icon.png",
-    "logo": "./.claude-plugin/icon.png",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png",
     "screenshots": [
       "./assets/screenshots/help-centre.png",
       "./assets/screenshots/immich.png",

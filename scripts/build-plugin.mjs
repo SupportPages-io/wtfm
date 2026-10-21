@@ -1,16 +1,18 @@
 #!/usr/bin/env node
-// Assemble the installable Claude Code plugin tree that the `claude-plugin`
-// branch publishes.
+// Assemble an installable plugin tree: the Claude Code plugin that the
+// `claude-plugin` branch publishes (plugin/), or the Codex plugin that the
+// `codex-plugin` branch publishes (the shared hooks plus the plugin/codex/
+// overlay). Both carry the same server and engine.
 //
 // Claude Code installs plugins by copying a git checkout and then installing
 // the dependencies from package.json and package-lock.json (`npm ci
 // --ignore-scripts`). It does not build TypeScript, so the tree ships compiled
 // dist/ and the engine. Chromium is not included: the plugin's SessionStart
-// hook downloads it on first use. Codex installs the same tree but no
-// dependencies: its MCP entry runs scripts/codex-mcp.mjs, which installs them
-// from the shipped lockfile on the first start.
+// hook downloads it on first use. Codex installs no dependencies: its MCP entry
+// runs scripts/codex-mcp.mjs, which installs them from the shipped lockfile on
+// the first start.
 //
-// Usage: node scripts/build-plugin.mjs --out <directory>
+// Usage: node scripts/build-plugin.mjs --out <directory> [--target claude|codex]
 import { spawnSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -24,6 +26,7 @@ const PACKAGE_FILES = ['dist', 'engine', 'scripts', 'LICENSE', 'NOTICE'];
 // Release tooling runs only in CI. Shipped, it reads like the plugin handling
 // release credentials.
 const RELEASE_SCRIPTS = ['build-plugin.mjs', 'build-release.mjs', 'check-release.mjs', 'publish-release.mjs', 'smoke-release.mjs'];
+export const TARGETS = ['claude', 'codex'];
 
 const readJson = async file => JSON.parse(await readFile(file, 'utf8'));
 
@@ -46,7 +49,8 @@ async function productionLockfile(root, manifest) {
   }
 }
 
-export async function buildPlugin({ out, root = repositoryRoot } = {}) {
+export async function buildPlugin({ out, root = repositoryRoot, target = 'claude' } = {}) {
+  if (!TARGETS.includes(target)) throw Error(`Unknown plugin target ${target}: use ${TARGETS.join(' or ')}.`);
   if (!await exists(path.join(root, 'dist/writer-agent.js'))) throw Error('Build the server first: npm run build.');
   const pkg = await readJson(path.join(root, 'package.json'));
   out = path.resolve(out);
@@ -54,33 +58,41 @@ export async function buildPlugin({ out, root = repositoryRoot } = {}) {
   // Replace everything except the branch's own git metadata.
   for (const name of await readdir(out)) if (name !== '.git') await rm(path.join(out, name), { recursive: true, force: true });
 
-  await cp(path.join(root, 'plugin'), out, { recursive: true });
-  // Codex reads .codex-plugin/ and .codex-mcp.json; Claude Code ignores both.
-  for (const file of ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json']) {
-    const manifest = path.join(out, file);
-    const plugin = await readJson(manifest);
-    await writeFile(manifest, JSON.stringify({ ...plugin, version: pkg.version }, null, 2) + '\n');
+  const codex = target === 'codex';
+  const overlay = path.join(root, 'plugin/codex');
+  if (codex) {
+    // Codex takes the shared hooks and its own manifest, MCP config and README.
+    await cp(path.join(root, 'plugin/hooks'), path.join(out, 'hooks'), { recursive: true });
+    await cp(overlay, out, { recursive: true });
+    const plugin = await readJson(path.join(out, '.codex-plugin/plugin.json'));
+    await mkdir(path.join(out, 'assets'), { recursive: true });
+    await cp(path.join(root, 'plugin/.claude-plugin/icon.png'), path.join(out, plugin.interface.logo));
+    // The listing's screenshots, from the README's examples.
+    for (const screenshot of plugin.interface.screenshots) {
+      await mkdir(path.dirname(path.join(out, screenshot)), { recursive: true });
+      await cp(path.join(root, 'docs/images', path.basename(screenshot)), path.join(out, screenshot));
+    }
+  } else {
+    await cp(path.join(root, 'plugin'), out, { recursive: true, filter: file => file !== overlay });
+    // The writer subagent, from the same definition the CLI installs.
+    const { writerAgentFile, writerAgentType } = await import(pathToFileURL(path.join(root, 'dist/writer-agent.js')).href);
+    await mkdir(path.join(out, 'agents'), { recursive: true });
+    await writeFile(path.join(out, 'agents', `${writerAgentType}.md`), writerAgentFile);
   }
-  // The Codex listing's screenshots, from the README's examples.
-  const codex = await readJson(path.join(out, '.codex-plugin/plugin.json'));
-  for (const screenshot of codex.interface.screenshots) {
-    await mkdir(path.dirname(path.join(out, screenshot)), { recursive: true });
-    await cp(path.join(root, 'docs/images', path.basename(screenshot)), path.join(out, screenshot));
-  }
-
-  // The writer subagent, from the same definition the CLI installs.
-  const { writerAgentFile, writerAgentType } = await import(pathToFileURL(path.join(root, 'dist/writer-agent.js')).href);
-  await mkdir(path.join(out, 'agents'), { recursive: true });
-  await writeFile(path.join(out, 'agents', `${writerAgentType}.md`), writerAgentFile);
+  const manifest = path.join(out, codex ? '.codex-plugin/plugin.json' : '.claude-plugin/plugin.json');
+  await writeFile(manifest, JSON.stringify({ ...await readJson(manifest), version: pkg.version }, null, 2) + '\n');
 
   // Types and source maps are for development; nothing loads them at runtime.
-  // The root lockfile is written below; the engine's own are not used.
+  // The root lockfile is written below; the engine's own are not used. The
+  // Codex tree also leaves out the engine's unit tests: the catalogue's scanner
+  // reads their fake API keys as secrets.
   for (const name of PACKAGE_FILES) {
     await cp(path.join(root, name), path.join(out, name), {
       recursive: true,
       filter: file => path.basename(file) !== 'package-lock.json'
         && !(path.dirname(file) === path.join(root, 'scripts') && RELEASE_SCRIPTS.includes(path.basename(file)))
-        && (!/\.(d\.ts|map)$/.test(file) || !file.startsWith(path.join(root, 'dist'))),
+        && (!/\.(d\.ts|map)$/.test(file) || !file.startsWith(path.join(root, 'dist')))
+        && !(codex && file.startsWith(path.join(root, 'engine')) && /^test_.*\.js$/.test(path.basename(file))),
     });
   }
   // framework7's stylesheet embeds its icon font as one 4,500-character word,
@@ -118,9 +130,9 @@ export async function buildPlugin({ out, root = repositoryRoot } = {}) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
-    const { values } = parseArgs({ options: { out: { type: 'string' } } });
-    if (!values.out) throw Error('Usage: build-plugin.mjs --out <directory>');
-    const result = await buildPlugin({ out: values.out });
+    const { values } = parseArgs({ options: { out: { type: 'string' }, target: { type: 'string', default: 'claude' } } });
+    if (!values.out) throw Error('Usage: build-plugin.mjs --out <directory> [--target claude|codex]');
+    const result = await buildPlugin({ out: values.out, target: values.target });
     process.stdout.write(`${result.out} (${result.version})\n`);
   } catch (error) {
     process.stderr.write(error.message + '\n');
