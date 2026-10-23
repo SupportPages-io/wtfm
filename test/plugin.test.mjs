@@ -194,6 +194,15 @@ test('the Codex launcher installs the dependencies on the first start, then serv
   assert.ok(tools?.includes('supportpages_create_article'), result.stderr);
   assert.ok(tools.every(name => name.startsWith('supportpages_')));
   assert.ok((await lstat(path.join(out, 'node_modules/@modelcontextprotocol/sdk/package.json'))).isFile());
+  // Codex fingerprints every file in a plugin before trusting its hooks, and one
+  // symlink (npm's node_modules/.bin shortcuts) makes it skip all of them.
+  const links = [];
+  const walk = async dir => { for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) links.push(path.relative(out, path.join(dir, entry.name)));
+    else if (entry.isDirectory()) await walk(path.join(dir, entry.name));
+  } };
+  await walk(out);
+  assert.deepEqual(links, []);
 });
 
 test('plugin sessions launch the namespaced writer agent', () => {

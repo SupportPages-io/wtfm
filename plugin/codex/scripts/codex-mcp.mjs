@@ -22,7 +22,7 @@ function npmCi() {
   // npm sits beside node in standard installs; fall back to PATH.
   const local = path.join(path.dirname(process.execPath), 'npm');
   return stat(local).then(() => local, () => 'npm').then(npm => new Promise((resolve, reject) => {
-    const child = spawn(npm, ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error'],
+    const child = spawn(npm, ['ci', '--omit=dev', '--ignore-scripts', '--no-bin-links', '--no-audit', '--no-fund', '--loglevel=error'],
       { cwd: root, env: { ...process.env, PUPPETEER_SKIP_DOWNLOAD: 'true' }, stdio: ['ignore', process.stderr, process.stderr] });
     child.once('error', reject);
     child.once('exit', code => code === 0 ? resolve() : reject(Error(`npm ci exited with ${code}`)));
