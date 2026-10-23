@@ -41,7 +41,7 @@ export type AccountOffer =
   | { status: 'declined'; asked: boolean }
   | { status: 'linked'; project_id: string; account?: Account }
   | ({ status: string } & Record<string, unknown>);
-type InitializeInput = { workspace?: string; project_id?: string; host_local?: boolean; setup_action?: WriterAction; open_browser?: boolean; signup?: boolean; await_ms?: number };
+type InitializeInput = { workspace?: string; project_id?: string; host_local?: boolean; local?: boolean; setup_action?: WriterAction; open_browser?: boolean; signup?: boolean; await_ms?: number };
 export type HostedSetupInput = { workspace?: string; project_id?: string; signup?: boolean; action: 'find_article_gaps' | 'suggest_sections' | 'recommend_articles' | 'create_video_walkthrough'; article_id?: string; resume_arguments?: { article_id?: string; expected_revision?: string; request_id?: string; prefer_background?: boolean; open_when_ready?: boolean } };
 export class Session {
   roots?: () => Promise<string[] | undefined>;
@@ -407,7 +407,7 @@ export class Session {
     }
     return { ...pairing.result(), workspace: ws.root, api_origin: o.origin, ...browser };
   }
-  async init(input: { workspace?: string; project_id?: string; signup?: boolean; host_local?: boolean }): Promise<unknown> {
+  async init(input: { workspace?: string; project_id?: string; signup?: boolean; host_local?: boolean; local?: boolean }): Promise<unknown> {
     return this.connect(input);
   }
   /** MCP equivalent of the CLI's publish flow. Each response names the next user choice. */
@@ -460,6 +460,10 @@ export class Session {
     let projects: unknown;
     try {
       bridge = await this.bridge(ws);
+      // Choosing to save locally sets up a new folder with no sign-in.
+      if (input.local && !input.project_id && !input.host_local && await bridge.destination() === 'none') {
+        await bridge.lock(async () => { if (await bridge.destination() === 'none') await bridge.saveLocal({ version: 1, export_dir: 'output/articles' }); });
+      }
       // A folder that saves articles locally needs no sign-in; an explicit
       // project_id still connects it to a help centre.
       if (!input.project_id && !input.host_local && await bridge.destination() === 'local') {

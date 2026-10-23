@@ -122,3 +122,13 @@ test('a folder that saves articles locally reports local without any network, wi
   const initialized = await f.session.init({});
   assert.equal(initialized.status, 'local'); assert.match(initialized.instructions, /wtfm analyse/);
 });
+test('choosing to save locally sets up an unconfigured folder without sign-in or a browser', async t => {
+  const f = await setup(t);
+  network(t, async () => assert.fail('saving locally must not call the service'));
+  f.session.openBrowser = async () => assert.fail('saving locally must not open a browser');
+  assert.match((await f.session.status()).instructions, /local=true/);
+  const result = await f.session.init({ local: true });
+  assert.equal(result.status, 'local');
+  assert.equal(result.export_dir, 'output/articles');
+  assert.deepEqual(await f.ws.json('.rtfm/supportpages/local.json'), { version: 1, export_dir: 'output/articles' });
+});
