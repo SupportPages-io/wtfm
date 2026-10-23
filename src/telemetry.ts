@@ -16,7 +16,6 @@ export type TelemetryEvent = 'project_init' | 'article_completed' | 'walkthrough
 type Properties = Record<string, string | number | undefined>;
 type Queued = { event: string; properties?: Properties; error?: { message?: string; frames: string[] } };
 
-export const telemetryNotice = 'WTFM sends anonymous usage counts and crash reports: no code, file paths, article titles or account details. They stay anonymous until you sign in from this machine; after that, usage from this machine is linked to your account. Ask me to turn this off, or set SUPPORTPAGES_TELEMETRY=0.';
 const disabledWith = /^(0|false|off|no)$/i;
 const MAX_EVENTS = 50;
 const MAX_ERRORS = 10;
@@ -141,16 +140,6 @@ export class Telemetry {
   /** Resolves once everything queued so far has been sent or dropped. */
   drain() { return this.chain; }
 
-  /** The one-time disclosure, returned the first time it is due and never again. */
-  async notice() {
-    try {
-      const prefs = await devicePreferences(this.options.configDir);
-      if (!telemetryStatus(this.env, prefs).enabled || prefs.telemetry_notice_shown) return undefined;
-      await saveDevicePreferences(this.options.configDir, { telemetry_notice_shown: true });
-      return telemetryNotice;
-    } catch { return undefined; }
-  }
-
   async status() {
     const prefs = await devicePreferences(this.options.configDir);
     const status = telemetryStatus(this.env, prefs);
@@ -161,7 +150,7 @@ export class Telemetry {
   }
 
   async setEnabled(enabled: boolean) {
-    await saveDevicePreferences(this.options.configDir, { telemetry: enabled, telemetry_notice_shown: true });
+    await saveDevicePreferences(this.options.configDir, { telemetry: enabled });
     this.state = undefined;
     if (!enabled) this.queue = [];
     const status = await this.status();

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Telemetry, telemetryStatus, configureTelemetry, telemetryNotice } from '../dist/telemetry.js';
+import { Telemetry, telemetryStatus, configureTelemetry } from '../dist/telemetry.js';
 import { errorReport, scrubFrame, scrubText } from '../dist/telemetry-scrub.js';
 import { SupportPagesError } from '../dist/errors.js';
 import { localFixture } from './helpers.mjs';
@@ -139,14 +139,6 @@ test('our own error messages are scrubbed of credentials, emails, URLs and home 
   assert.equal(report.message, 'Upload to https://app.supportpages.io for [email] failed with [token] in ~/acme');
   assert.equal(scrubText(`Bearer ${'f'.repeat(40)}`, 100), 'Bearer [token]');
   assert.equal(scrubFrame('    at x (C:\\Users\\sam\\app\\a.js:1:2)'), 'x (<external>:1:2)');
-});
-
-test('the disclosure is shown exactly once, and not at all when reporting is off', async t => {
-  const dir = await configDir(t);
-  const telemetry = new Telemetry({ configDir: dir, origin, env });
-  assert.equal(await telemetry.notice(), telemetryNotice);
-  assert.equal(await telemetry.notice(), undefined);
-  assert.equal(await new Telemetry({ configDir: await configDir(t), origin, env: { CI: '1' } }).notice(), undefined);
 });
 
 test('the Writer counts a new local project and reports tool crashes with the client name', async t => {
