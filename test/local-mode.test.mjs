@@ -219,14 +219,8 @@ test('a project map that reports an incomplete detection is not ready and names 
   assert.equal(status.generation_ready, false);
   assert.equal(status.analysis.status, 'invalid');
   assert.match(status.instructions, /Explicit app_type=terminal is required/);
-  assert.match(status.instructions, /wtfm analyse --app-type terminal/);
-  await assert.rejects(f.bridge.prepare({ title: 'How to install', article_type: 'how-to' }), error => {
-    assert.equal(error.code, 'analysis_required');
-    assert.equal(error.details?.app_type, 'terminal');
-    assert.equal(error.details?.rerun, 'wtfm analyse --app-type terminal');
-    assert.match(error.message, /Explicit app_type=terminal is required/);
-    return true;
-  });
+  assert.match(status.instructions, /needs app_type=terminal: the next article reruns detection/);
+  assert.doesNotMatch(status.instructions, /wtfm analyse/);
   // A map that finishes its detection still counts as ready.
   await f.ws.writeJson('.rtfm/project_map.json', { ...map, detection_status: 'complete', detection_block: null });
   assert.equal((await f.bridge.status()).generation_ready, true);

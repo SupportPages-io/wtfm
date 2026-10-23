@@ -28,6 +28,11 @@ export function projectCacheFiles(codebaseDir = '.') {
 }
 const sha = (data: Buffer) => createHash('sha256').update(data).digest('hex');
 
+/** What a full detect-project run must leave in its output directory for LocalSetup.accept. */
+export function analysisOutputContract(output: string) {
+  return `Local setup output contract: Write ${output}/analysis-target.json containing {"codebase_dir":"."} when analysing the workspace root, or the actual workspace-relative application directory (for example {"codebase_dir":"apps/web"}) when analysing a nested application. Keep branding.json, project_map.json and branding.css in that application's .rtfm directory. Do not copy its cache into the parent: source paths are relative to the application. Write summary.md and overview.txt in ${output}. Before reporting success, verify all five files exist and contain valid output, including when reusing an existing cache. Record the selected directory even when invoking the skill through the Skill tool.`;
+}
+
 /** detect-project names the app type an incomplete map needs; that is the recovery hint. */
 export function requiredAppType(block?: string | null): string | undefined {
   return /(?<![\w])app_type=([a-z0-9]+)/i.exec(block ?? '')?.[1]?.toLowerCase();

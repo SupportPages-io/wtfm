@@ -24,6 +24,8 @@ export const runSchema = z.object({
   }).optional(),
   title: z.string().optional(), api_origin: z.string().optional(), project_id: remoteId.optional(),
   codebase_dir: z.string().optional(),
+  /** Where this run's writer analyses a project that had no usable analysis; complete_article saves it. */
+  analysis_dir: z.string().optional(), analysis_app_type: z.string().optional(),
   prefer_background: z.boolean().optional(), open_when_ready: z.boolean().optional(),
   execution_mode: z.enum(['background', 'foreground']).optional(), host_task_id: z.string().max(200).optional(),
   writer_token: z.uuid().optional(), writer_started_at: z.iso.datetime().optional(),

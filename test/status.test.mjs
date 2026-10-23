@@ -120,7 +120,9 @@ test('a folder that saves articles locally reports local without any network, wi
   result = await f.session.status();
   assert.equal(result.status, 'local'); assert.equal(result.credentials_configured, true);
   const initialized = await f.session.init({});
-  assert.equal(initialized.status, 'local'); assert.match(initialized.instructions, /wtfm analyse/);
+  // An unanalysed folder can still write: the first article analyses it, with no terminal step.
+  assert.equal(initialized.status, 'local'); assert.match(initialized.instructions, /first article analyses the app/);
+  assert.doesNotMatch(initialized.instructions, /wtfm analyse/);
 });
 test('choosing to save locally sets up an unconfigured folder without sign-in or a browser', async t => {
   const f = await setup(t);

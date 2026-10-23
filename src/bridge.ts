@@ -22,7 +22,7 @@ import { articleChatInstruction, localChatInstruction, articleLink } from './art
 import { composeWritingStyle } from './writing-style.js';
 import { exportArticle } from './export.js';
 import { executionSettings } from './agent-settings.js';
-import { LocalSetup } from './local-setup.js';
+import { LocalSetup, analysisOutputContract } from './local-setup.js';
 import { localArticleInventory } from './local-inventory.js';
 import { ProjectSync } from './sync.js';
 const exec = promisify(execFile);
@@ -32,17 +32,25 @@ import { RepositoryReminders, repositoryShowText, type RepositoryInvitation } fr
 import { HostingReminders, hostingShowText, type HostingInvitation } from './hosting-benefits.js';
 import { activeTelemetry, secondsSince, track } from './telemetry.js';
 import { CLI_NAME } from './brand.js';
-/** What to do about an analysis that is missing or was rejected by validation. */
+/** What a missing or rejected analysis means for the next article. No separate
+ * step is needed: the next article's writer analyses the project first. */
 export function analysisInstruction(analysis: { status: string; app_type?: unknown; error?: { message?: string } }) {
   if (analysis.status === 'ready') return undefined;
   const appType = typeof analysis.app_type === 'string' ? analysis.app_type : undefined;
   const reason = analysis.error?.message ? `${analysis.error.message} ` : '';
-  if (appType) {
-    return `${reason}Project detection needs the app type it asked for. In the project terminal run ${CLI_NAME} analyse --app-type ${appType}, or rerun the detect-project skill with app_type=${appType}.`;
-  }
+  const next = 'Create the article as usual; it needs no separate step and no terminal command.';
+  if (appType) return `${reason}Project detection needs app_type=${appType}: the next article reruns detection with that app type before writing, which takes a few extra minutes. ${next}`;
   return analysis.status === 'invalid'
-    ? `${reason}Run ${CLI_NAME} analyse in the project terminal to rebuild the project analysis.`
-    : `Run ${CLI_NAME} analyse in the project terminal before creating an article.`;
+    ? `${reason}The saved project analysis is out of date: the next article analyses the app again before writing, which takes a few extra minutes. ${next}`
+    : `This project has not been analysed yet: the first article analyses the app before writing, which takes a few extra minutes. ${next}`;
+}
+
+/** Writer steps that analyse the project before writing, into the run's analysis directory. */
+function analysisSteps(skillsDir: string, analysisPath: string, articlePath: string, appType?: string) {
+  return [
+    `This project has no usable analysis yet, so analyse it before writing. Read ${path.join(skillsDir, 'detect-project', 'SKILL.md')} and run detect-project in full for the workspace${appType ? ` with app_type=${appType}` : ''}. For every detect-project command set RTFM_ANALYZE=full and RTFM_OUTPUT_DIR=${analysisPath}; summary.md and overview.txt are mandatory. ${analysisOutputContract(analysisPath)}`,
+    `After the analysis, set RTFM_OUTPUT_DIR back to ${articlePath} and generate the article. If the analysis cannot be completed, stop and report the block instead of writing the article.`,
+  ];
 }
 
 /** Counts a locally written article's end state: saved in the folder, or uploaded to a help centre. */
@@ -262,7 +270,13 @@ export class Bridge {
       }
       await this.runs.assertAvailable();
       if (context.local ? await this.destination() !== 'local' : (await this.binding()).project_id !== context.project.id) fail('destination_mismatch', 'The connected help centre changed while preparing this article. Start again with the current connection.');
-      const analysis = await this.setup.requireAnalysis();
+      // A project without a usable analysis is analysed by this run's writer first;
+      // complete_article saves it. app_type comes from an incomplete detection.
+      const analysis = await this.setup.analysis();
+      const analysed = analysis.status === 'ready' ? analysis : undefined;
+      const appType = !analysed && typeof (analysis as { app_type?: unknown }).app_type === 'string' ? (analysis as { app_type: string }).app_type : undefined;
+      const analysisDir = analysed ? undefined : `${this.stateRoot}/setup/tasks/${randomUUID()}`;
+      const codebaseDir = analysed?.codebase_dir ?? '.';
       const scope = createHash('sha256').update(`${this.api.dev}\n${this.api.origin}`).digest('hex').slice(0, 16);
       const articleSlug = input.allow_duplicate ? `${slug.slice(0, 100)}-${randomUUID().slice(0, 8)}` : slug;
       const artifactDir = `${this.stateRoot}/work/${context.local ? 'local' : context.project.id}/${articleSlug}`;
@@ -273,11 +287,13 @@ export class Bridge {
       for (const directory of [artifactDir, ...previousDirs]) {
         if (await this.ws.exists(directory)) fail('output_exists', 'Work for this topic already exists. Check the existing article status and continue that article instead of starting a duplicate.');
       }
-      const run = { writer_token: randomUUID(), codebase_dir: analysis.codebase_dir, id: randomUUID(), local_article_id: randomUUID(), artifact_dir: artifactDir, started_at: new Date().toISOString(), section_id: input.section_id ?? null, article_type: input.article_type, ...(context.progressive_articles ? { progress: { attempt: randomUUID(), sequence: 0 } } : {}), status: 'prepared' as const, skills_version: await this.version(), title: input.title, ...(local ? { local_export: { directory: local.export_dir } } : { api_origin: this.api.origin, project_id: context.project.id }), prefer_background: input.prefer_background ?? savedPreferences.prefer_background, open_when_ready: input.open_when_ready ?? savedPreferences.open_when_ready, phase: 'prepared' as const, session_id: this.sessionId };
-      const writerWorkspace = await this.ws.resolve(analysis.codebase_dir);
+      const run = { writer_token: randomUUID(), codebase_dir: codebaseDir, ...(analysisDir ? { analysis_dir: analysisDir, ...(appType ? { analysis_app_type: appType } : {}) } : {}), id: randomUUID(), local_article_id: randomUUID(), artifact_dir: artifactDir, started_at: new Date().toISOString(), section_id: input.section_id ?? null, article_type: input.article_type, ...(context.progressive_articles ? { progress: { attempt: randomUUID(), sequence: 0 } } : {}), status: 'prepared' as const, skills_version: await this.version(), title: input.title, ...(local ? { local_export: { directory: local.export_dir } } : { api_origin: this.api.origin, project_id: context.project.id }), prefer_background: input.prefer_background ?? savedPreferences.prefer_background, open_when_ready: input.open_when_ready ?? savedPreferences.open_when_ready, phase: 'prepared' as const, session_id: this.sessionId };
+      const writerWorkspace = await this.ws.resolve(codebaseDir);
       const outputPath = await this.ws.resolve(artifactDir);
-      const writerArtifactDir = analysis.codebase_dir === '.' ? artifactDir : outputPath;
-      const contextFile = await this.ws.writeJson(`${this.stateRoot}/runs/${run.id}/context.json`, { ...context, project_overview: analysis.overview, analysis_summary: analysis.summary, project_name: context.project.name, article_title: input.title, article_description: input.description ?? '', article_type: input.article_type });
+      const writerArtifactDir = codebaseDir === '.' ? artifactDir : outputPath;
+      const contextFile = await this.ws.writeJson(`${this.stateRoot}/runs/${run.id}/context.json`, { ...context, ...(analysed ? { project_overview: analysed.overview, analysis_summary: analysed.summary } : {}), project_name: context.project.name, article_title: input.title, article_description: input.description ?? '', article_type: input.article_type });
+      // The CLI's analysis tasks keep their context beside the output; this creates the directory too.
+      if (analysisDir) await this.ws.writeJson(`${analysisDir}/context.json`, { ...context, project_name: context.project.name });
       await this.ws.writeJson(`${this.stateRoot}/runs/${run.id}/run.json`, run);
       await this.ws.writeJson(`${this.stateRoot}/active-run.json`, run);
       // Reserve a preview before handing off to the host, including foreground writers.
@@ -291,6 +307,7 @@ export class Bridge {
       const environment = { RTFM_WORKSPACE: writerWorkspace, RTFM_CONTEXT_FILE: contextFile, RTFM_OUTPUT_DIR: outputPath, RTFM_SKILLS_DIR: this.skillsDir, RTFM_MAX_IMAGES: String(writerScreenshotLimit), PATH: path.dirname(process.execPath) + path.delimiter + (process.env.PATH ?? '') };
       const savedTo = local ? path.posix.join(local.export_dir, articleSlug) : undefined;
       return { status: 'prepared', run_id: run.id, artifact_dir: artifactDir, environment, ...link,
+        ...(analysisDir ? { project_analysis: 'included', analysis_message: 'I’ll analyse your app first, so this first article takes a few extra minutes.' } : {}),
         ...(local ? { local: true, saved_to: savedTo, link_message: `The article will be saved to ${savedTo}.`, link_instructions: localChatInstruction } : {}),
         prefer_background: run.prefer_background, open_when_ready: run.open_when_ready,
         task_brief: { name: writerAgentName, claude_model: writerModel, codex_model: codexWriter.model, codex_reasoning_effort: codexWriter.effort,
@@ -299,13 +316,15 @@ export class Bridge {
           environment, entrypoint, execution: entrypoint.execution, completion: entrypoint.completion, editor_url: link.editor_url,
           instructions: [entrypoint.instruction, entrypoint.execution.instruction,
             `The application and its .rtfm cache are in ${writerWorkspace}. Use ${outputPath} as OUT for every skill command instead of the default ./output/articles directory. Keep all article artifacts there so the MCP can observe and upload them.`,
-            `Read ${path.join(this.skillsDir, 'detect-project', 'SKILL.md')} and run detect-project if the project map is missing, stale, or reports an incomplete detection or a wrong app_type. An incomplete map names the app type it needs (app_type=…): rerun detection with that app type before generating, and report the block if it cannot be resolved.`,
+            ...(analysisDir ? analysisSteps(this.skillsDir, await this.ws.resolve(analysisDir), outputPath, appType)
+              : [`Read ${path.join(this.skillsDir, 'detect-project', 'SKILL.md')} and run detect-project if the project map is missing, stale, or reports an incomplete detection or a wrong app_type. An incomplete map names the app type it needs (app_type=…): rerun detection with that app type before generating, and report the block if it cannot be resolved.`]),
             'Generate the requested article using the instructions returned by the entry check and the supplied context and environment.',
             'Finish all images, final rendering and fidelity validation. Do not edit application source code.',
             entrypoint.completion.instruction,
             writerPermissionInstruction,
             'Report success only after the full pipeline finishes. Report unresolved failures to the main agent. Do not call MCP tools, upload or publish.'] },
         instructions: [
+          ...(analysisDir ? ['This project has not been analysed yet, so the writer analyses it before writing. Before launching, tell the user in one line, using analysis_message: the app is analysed first, so this first article takes a few extra minutes. Do not ask the user to run anything.'] : []),
           local ? localChatInstruction : link.link_instructions,
           writerLaunchInstruction,
           codexWriterLaunchInstruction,
@@ -524,9 +543,31 @@ export class Bridge {
       if (run) await this.runs.save({ ...run, ...adopted, phase: 'ready_for_review', remote: result.article, error: undefined });
       return result;
   }
+  /** Saves the analysis a run's writer produced, as `wtfm analyse` does. The article
+   * never depends on it: when the analysis is unusable, the next article analyses again. */
+  private async adoptRunAnalysisUnlocked(run: Run) {
+    if (!run.analysis_dir || !['prepared', 'finalized'].includes(run.status) || (await this.setup.analysis()).status === 'ready') return undefined;
+    try {
+      const target = await this.setup.validate(run.analysis_dir);
+      let commit: string | null = null;
+      try {
+        const head = (await exec('git', ['rev-parse', 'HEAD'], { cwd: await this.ws.resolve(target.codebase_dir), timeout: 5000 })).stdout.trim();
+        if (/^[a-f0-9]{40,64}$/.test(head)) commit = head;
+      } catch { /* A non-git project keeps an unknown source commit. */ }
+      await this.setup.accept(run.analysis_dir, 'article writer', run.skills_version ?? await this.version(), commit, target.codebase_dir);
+      return { status: 'saved' as const, message: 'The project analysis was saved, so later articles skip it.' };
+    } catch (error) {
+      return { status: 'not_saved' as const, message: `The article is complete, but the project analysis it ran could not be saved (${publicError(error).message}). The next article analyses the project again.` };
+    }
+  }
   async complete(input: { run_id: string; completed: true }, options: { deliver?: boolean } = {}) {
     if (!input.completed) fail('incomplete_generation', 'Confirm successful completion of the entire writing task.');
     this.relay.stop();
+    const project_analysis = await this.lock(async () => this.adoptRunAnalysisUnlocked(await this.runs.read(input.run_id)));
+    const result = await this.deliverCompleted(input, options);
+    return project_analysis && result && typeof result === 'object' ? { ...result, project_analysis } : result;
+  }
+  private deliverCompleted(input: { run_id: string; completed: true }, options: { deliver?: boolean }) {
     return this.lock(async () => {
       let run = await this.runs.read(input.run_id);
       if (!['prepared', 'finalized'].includes(run.status)) fail('incomplete_generation', 'Failed, cancelled or interrupted runs cannot be delivered.');
@@ -741,6 +782,8 @@ export class Bridge {
         project_overview: previousContext.project_overview, analysis_summary: previousContext.analysis_summary, project_name: context.project.name });
       const writerWorkspace = await this.ws.resolve(run.codebase_dir ?? '.');
       const outputPath = await this.ws.resolve(run.artifact_dir);
+      const pendingAnalysis = run.analysis_dir && (await this.setup.analysis()).status !== 'ready'
+        ? analysisSteps(this.skillsDir, await this.ws.resolve(run.analysis_dir), outputPath, run.analysis_app_type) : [];
       const link = articleLink(run);
       this.relay.start(run.id);
       return { run_id: run.id, ...link, prefer_background: run.prefer_background, ...(local ? { local: true, link_instructions: localChatInstruction } : {}),
@@ -748,7 +791,7 @@ export class Bridge {
           prefer_background: run.prefer_background, reporting_instructions: writerReportingInstruction(run.prefer_background === true),
           run_id: run.id, entrypoint, execution: entrypoint.execution, completion: entrypoint.completion, editor_url: link.editor_url, writer_instructions: claudeWriterAgents[writerAgentType].prompt, workspace: writerWorkspace, artifact_dir: run.codebase_dir && run.codebase_dir !== '.' ? outputPath : run.artifact_dir,
           environment: { RTFM_WORKSPACE: writerWorkspace, RTFM_CONTEXT_FILE: contextFile, RTFM_OUTPUT_DIR: outputPath, RTFM_SKILLS_DIR: this.skillsDir, RTFM_MAX_IMAGES: String(writerScreenshotLimit), PATH: path.dirname(process.execPath) + path.delimiter + (process.env.PATH ?? '') },
-          instructions: [entrypoint.instruction, entrypoint.execution.instruction, `The application and its .rtfm cache are in ${writerWorkspace}. Use ${outputPath} as OUT for every skill command instead of the default ./output/articles directory.`, `Follow the article instructions returned by the entry check. Resume this article in ${outputPath}; retain valid prose and images, finish missing or failed work, rerun final rendering and fidelity validation. Do not edit app source, upload, publish or call MCP tools.`, entrypoint.completion.instruction] },
+          instructions: [entrypoint.instruction, entrypoint.execution.instruction, `The application and its .rtfm cache are in ${writerWorkspace}. Use ${outputPath} as OUT for every skill command instead of the default ./output/articles directory.`, ...pendingAnalysis, `Follow the article instructions returned by the entry check. Resume this article in ${outputPath}; retain valid prose and images, finish missing or failed work, rerun final rendering and fidelity validation. Do not edit app source, upload, publish or call MCP tools.`, entrypoint.completion.instruction] },
         instructions: `${local ? localChatInstruction : link.link_instructions} ${writerLaunchInstruction} ${codexWriterLaunchInstruction} ${backgroundParentInstruction} Launch this recovery task using the host coding agent without worktree isolation, then report started with update_run. On success call complete_article.${local ? ' The article is saved locally when complete; there is no preview link.' : ' Show the same preview link; do not open a second tab.'}` };
     });
   }

@@ -5,13 +5,13 @@ import path from 'node:path';
 import { fixture, seedAnalysis, context } from './helpers.mjs';
 import { LocalSetup } from '../dist/local-setup.js';
 
-test('a connected repository cannot prepare or finalize articles before full analysis', async t => {
+test('a connected repository cannot finalize an article written outside a run before full analysis', async t => {
   const f = await fixture(t, async url => Response.json(url.endsWith('/projects') ? { projects: [context.project] } : context));
   await f.bridge.bind('1'); await f.output();
   const status = await f.bridge.status();
   assert.equal(status.status, 'ready'); assert.equal(status.generation_ready, false);
   assert.equal(status.analysis.status, 'required');
-  await assert.rejects(f.bridge.prepare({ title: 'First article', article_type: 'how-to' }), { code: 'analysis_required' });
+  // Preparing is allowed: the first article analyses the project (test/first-article-analysis.test.mjs).
   await assert.rejects(f.bridge.finalize({ artifact_dir: 'output/articles/invite', completed: true }), { code: 'analysis_required' });
   assert.equal(await f.ws.exists('.rtfm/supportpages/active-run.json'), false);
   await seedAnalysis(f.ws);
