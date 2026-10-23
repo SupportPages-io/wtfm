@@ -586,6 +586,11 @@ export class Session {
         let projects;
         try {
             bridge = await this.bridge(ws);
+            // Choosing to save locally sets up a new folder with no sign-in.
+            if (input.local && !input.project_id && !input.host_local && await bridge.destination() === 'none') {
+                await bridge.lock(async () => { if (await bridge.destination() === 'none')
+                    await bridge.saveLocal({ version: 1, export_dir: 'output/articles' }); });
+            }
             // A folder that saves articles locally needs no sign-in; an explicit
             // project_id still connects it to a help centre.
             if (!input.project_id && !input.host_local && await bridge.destination() === 'local') {
@@ -593,10 +598,9 @@ export class Session {
                 const analysis = await bridge.setup.analysis();
                 return { status: 'local', workspace: bridge.ws.root, api_origin: this.options.origin, account: await this.account(),
                     analysis, generation_ready: analysis.status === 'ready', export_dir: local.export_dir,
-                    instructions: [analysis.status === 'ready' ? undefined : analysisInstruction(analysis),
-                        analysis.status === 'ready'
-                            ? 'This folder saves articles locally as Markdown and screenshots; no help centre or sign-in is needed. Call supportpages_prepare_article to write one. If the user asks to host them or to use a help centre, ask whether to sign in or create a free SupportPages.io account, then call supportpages_init with host_local=true (signup=true for a new account); use supportpages_publish instead when the saved articles should be uploaded as well.'
-                            : 'This folder saves articles locally.'].filter(Boolean).join(' ') };
+                    instructions: ['This folder saves articles locally as Markdown and screenshots; no help centre or sign-in is needed. Call supportpages_prepare_article to write one.',
+                        analysisInstruction(analysis),
+                        'If the user asks to host them or to use a help centre, ask whether to sign in or create a free SupportPages.io account, then call supportpages_init with host_local=true (signup=true for a new account); use supportpages_publish instead when the saved articles should be uploaded as well.'].filter(Boolean).join(' ') };
             }
             if (bridge.api.configured())
                 projects = await bridge.listProjects();
@@ -620,7 +624,7 @@ export class Session {
         const synchronization = await bridge.sync();
         return { status: 'ready', workspace: bridge.ws.root, api_origin: o.origin, account: await this.account(), project_id: bound.project_id,
             analysis, synchronization, generation_ready: analysis.status === 'ready',
-            ...(analysis.status !== 'ready' ? { instructions: `The connection is ready. Run ${CLI_NAME} analyse in this project’s terminal before creating an article.` } : {}) };
+            ...(analysis.status !== 'ready' ? { instructions: `The connection is ready. ${analysisInstruction(analysis)}` } : {}) };
     }
 }
 //# sourceMappingURL=session.js.map

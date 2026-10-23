@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { readFile, rm } from 'node:fs/promises';
-import { LocalSetup, cacheFiles, projectCacheFiles } from '../../dist/local-setup.js';
+import { LocalSetup, analysisOutputContract, cacheFiles, projectCacheFiles } from '../../dist/local-setup.js';
 import { fail, publicError } from '../../dist/errors.js';
 import { runAgent, openAgent } from './agent-runner.mjs';
 import { ensureWriterAvailable } from './writer-recovery.mjs';
@@ -88,7 +88,7 @@ export class Planning {
     const receipt = { version: 1, skill, agent, workspace: ws.root, output_dir: directory, status: 'running', started_at: new Date().toISOString() };
     this.activeTask = receipt;
     await ws.writeJson(`${this.bridge.stateRoot}/setup/task.json`, receipt);
-    const targetContract = skill === 'detect-project' ? `\n\nLocal setup output contract: Write ${output}/analysis-target.json containing {"codebase_dir":"."} when analysing the workspace root, or the actual workspace-relative application directory (for example {"codebase_dir":"apps/web"}) when analysing a nested application. Keep branding.json, project_map.json and branding.css in that application's .rtfm directory. Do not copy its cache into the parent: source paths are relative to the application. Write summary.md and overview.txt in ${output}. Before reporting success, verify all five files exist and contain valid output, including when reusing an existing cache. Record the selected directory even when invoking the skill through the Skill tool.` : '';
+    const targetContract = skill === 'detect-project' ? `\n\n${analysisOutputContract(output)}` : '';
     const prompt = `Run the ${skill} skill for this local project. Complete the task and write its output files; do not generate articles, publish, or call SupportPages.io MCP tools.\nIf a required tool or file access needs permission, stop and report the block. Do not work around permission denials by copying scripts or switching tools.\nWorkspace: ${ws.root}\nEngine root: ${this.session.options.skillsDir} (exported as RTFM_SKILLS_DIR, which the skill paths use).\nContext: ${contextPath}\nOutput directory: ${output}\n${extra}\n\n${instructions}${targetContract}`;
     const env = { ...this.deps.env, RTFM_WORKSPACE: ws.root, RTFM_CONTEXT_FILE: contextPath, RTFM_OUTPUT_DIR: output,
       RTFM_ANALYZE: skill === 'detect-project' ? 'full' : '', RTFM_SKILLS_DIR: this.session.options.skillsDir };
