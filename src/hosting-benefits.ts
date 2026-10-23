@@ -8,6 +8,7 @@ export type HostingInvitation = z.infer<typeof hostingInvitationSchema>;
 /** Why an anonymous local folder would want a SupportPages.io account. Every
  * message must hold on the free plan a new account lands on. */
 export const hostingBenefits = [
+  { id: 'keep_up_to_date', category: 'maintenance', message: 'If you connect WTFM to a free SupportPages.io account, you can keep this article up to date automatically.' },
   { id: 'public_url', category: 'reach', short: 'a public URL to share with customers', message: 'Give this article a public URL on your own SupportPages.io help centre, ready to share with customers.' },
   { id: 'editor_review', category: 'editing', short: 'an editor to polish drafts before anyone sees them', message: 'Review and polish drafts in the SupportPages.io editor, with your screenshots already in place, before anyone else sees them.' },
   { id: 'ai_answers', category: 'reach', short: 'AI answers for the questions customers ask', message: 'Let customers ask questions on your help centre and get AI answers grounded in your articles.' },
@@ -32,9 +33,10 @@ export const setupInvitation = () => [
   `A free account ${shortForm('free_account')}.`,
 ];
 
-/** The exact paragraph the agent shows after a saved local article: the benefit, then the offer. */
-export const hostingShowText = (invitation: HostingInvitation) =>
-  `${invitation.message} If you'd like, I can host it on a SupportPages.io help centre.`;
+/** The exact paragraph the agent shows after a saved local article: the benefit, then the
+ * question. A device that is not signed in is offered a free account; a signed-in one, its own. */
+export const hostingShowText = (invitation: HostingInvitation, signedIn = false) =>
+  `${invitation.message} ${signedIn ? 'Would you like me to connect it to your SupportPages.io account?' : 'Would you like me to create your free account?'}`;
 
 /** Anonymous users have no context yet: every one of the first three local
  * completions carries a benefit, then every third completion after that. */

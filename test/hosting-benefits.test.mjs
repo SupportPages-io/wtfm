@@ -25,7 +25,7 @@ test('the first three local completions and every third afterwards carry a rotat
     if (invitation) shown.push(invitation);
   }
   assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter(hostingReminderDue), [1, 2, 3, 6, 9]);
-  assert.equal(shown[0].id, 'public_url');
+  assert.equal(shown[0].id, 'keep_up_to_date', 'the first saved article leads with keeping it up to date');
   assert.equal(new Set(shown.slice(0, hostingBenefits.length).map(item => item.id)).size, hostingBenefits.length);
   assert.ok(shown.slice(0, hostingBenefits.length).some(item => item.id === shown[hostingBenefits.length].id), 'a new cycle reuses copy');
   for (let i = 1; i < shown.length; i++) assert.notEqual(category(shown[i]), category(shown[i - 1]));
@@ -42,12 +42,12 @@ test('disabling keeps counting, is scoped to the API origin and can be enabled a
   await a.preference(origin, false);
   assert.deepEqual(await b.preference(origin), { enabled: false, api_origin: origin, scope: 'local_folders_on_this_device' });
   for (let i = 0; i < 6; i++) assert.equal(await b.complete(input()), undefined);
-  assert.equal((await b.complete({ ...input(), origin: 'https://app.lvh.me:3443' })).id, 'public_url', 'development is separate');
+  assert.equal((await b.complete({ ...input(), origin: 'https://app.lvh.me:3443' })).id, 'keep_up_to_date', 'development is separate');
   await b.preference(origin, true);
   // Six completions were counted while disabled, so the next eligible one is the ninth.
   assert.equal(await a.complete(input()), undefined);
   assert.equal(await a.complete(input()), undefined);
-  assert.equal((await a.complete(input())).id, 'public_url');
+  assert.equal((await a.complete(input())).id, 'keep_up_to_date');
 });
 
 test('independent processes serialize shared completion counts and deduplicate concurrent replays', async t => {
@@ -83,19 +83,20 @@ test('a saved local article carries the invitation once, after the path, without
   const early = await f.bridge.complete({ run_id: f.prepared.run_id, completed: true }, { deliver: false });
   assert.equal(early.status, 'saved');
   assert.equal(early.hosting_invitation, undefined);
-  assert.match(early.instructions.join(' '), /Do not add a hosting invitation/);
+  assert.match(early.instructions.join(' '), /do not add a hosting invitation/);
   const result = await f.bridge.complete({ run_id: f.prepared.run_id, completed: true });
   assert.equal(result.status, 'saved'); assert.equal(result.local, true);
-  assert.equal(result.hosting_invitation.id, 'public_url');
+  assert.equal(result.hosting_invitation.id, 'keep_up_to_date');
   const text = result.instructions.join(' ');
-  assert.equal(result.show_to_user, `${result.hosting_invitation.message} If you'd like, I can host it on a SupportPages.io help centre.`);
+  assert.equal(result.show_to_user, 'If you connect WTFM to a free SupportPages.io account, you can keep this article up to date automatically. Would you like me to create your free account?');
   assert.match(result.instructions[0], /^Show show_to_user verbatim as its own paragraph, right after the saved path/);
-  assert.match(text, /ask whether to sign in or create a free SupportPages.io account and call supportpages_publish/);
+  assert.match(text, /If the user says yes, call supportpages_publish: when this device is not signed in, it creates their free SupportPages.io account \(signup=true\)/);
+  // Keeping articles up to date needs the repository too, so a yes continues there after hosting.
+  assert.match(text, /give the user its repository connection link \(repository_connection.connect_url\)/);
   assert.doesNotMatch(text, /terminal|(?:wtfm|supportpages) publish\b/);
-  assert.match(text, /Never start sign-in or upload without that request/);
-  assert.match(text, /Do not automatically ask whether to publish or start sign-in/);
+  assert.match(text, /Never start sign-in or upload before the user says yes; if they decline or move on, do not ask again/);
   assert.match(text, /supportpages_set_hosting_reminders with enabled=false/);
-  assert.doesNotMatch(text, /Do not add a hosting invitation/);
+  assert.doesNotMatch(text, /do not add a hosting invitation/);
   const run = await f.bridge.runs.read(f.prepared.run_id);
   assert.equal(run.hosting_reminder_checked, true);
   assert.deepEqual(run.hosting_invitation, result.hosting_invitation);
@@ -149,7 +150,7 @@ test('Claude and Codex receive the same optional invitation and can persist dism
     await server.connect(a); await client.connect(b); t.after(() => client.close());
     const args = { run_id: f.prepared.run_id, completed: true };
     const result = await client.callTool({ name: 'supportpages_complete_article', arguments: args });
-    assert.equal(result.structuredContent.result.hosting_invitation.id, 'public_url');
+    assert.equal(result.structuredContent.result.hosting_invitation.id, 'keep_up_to_date');
     assert.equal(result.structuredContent.result.local, true);
     assert.deepEqual(JSON.parse(result.content[0].text).result, result.structuredContent.result);
     const replay = await client.callTool({ name: 'supportpages_complete_article', arguments: args });
@@ -165,4 +166,12 @@ test('Claude and Codex receive the same optional invitation and can persist dism
     assert.equal(repository.isError, true, 'repository reminders still need a help centre');
     assert.equal(repository.structuredContent.error.code, 'local_workspace');
   }
+});
+
+test('a signed-in device is offered its own account, not a new free one', async t => {
+  const { hostingShowText } = await import('../dist/hosting-benefits.js');
+  const invitation = { id: 'public_url', message: hostingBenefits.find(item => item.id === 'public_url').message };
+  assert.match(hostingShowText(invitation), /Would you like me to create your free account\?$/);
+  assert.match(hostingShowText(invitation, true), /Would you like me to connect it to your SupportPages.io account\?$/);
+  assert.doesNotMatch(hostingShowText(invitation, true), /create your free account/);
 });

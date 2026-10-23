@@ -677,15 +677,15 @@ export class Bridge {
     }
     return { status: 'saved' as const, run_id: run.id, slug, artifact_dir: run.artifact_dir, markdown_path: run.export_path!,
       export_dir: path.dirname(run.export_path!), image_count: imageCount, preview_uri, ...articleLink(run), local: true,
-      ...(hosting_invitation ? { hosting_invitation, show_to_user: hostingShowText(hosting_invitation) } : {}),
+      ...(hosting_invitation ? { hosting_invitation, show_to_user: hostingShowText(hosting_invitation, this.api.configured()) } : {}),
       instructions: [
         ...(hosting_invitation ? ['Show show_to_user verbatim as its own paragraph, right after the saved path. It is part of this result, not optional commentary.'] : []),
         localChatInstruction,
         `The article is saved. Show ${run.export_path} as the deliverable in your completion message, with the number of screenshots when known.`,
-        'Do not automatically ask whether to publish or start sign-in. If the user explicitly asks to host the saved articles, use supportpages_publish.',
         ...(hosting_invitation
-          ? ['If the user then asks to host it, ask whether to sign in or create a free SupportPages.io account and call supportpages_publish. Never start sign-in or upload without that request, and never ask another mandatory question.']
-          : ['Do not add a hosting invitation to this completion. If the user asks to host or share it, ask whether to sign in or create a free SupportPages.io account, then use supportpages_publish.']),
+          ? ['show_to_user ends with a question. If the user says yes, call supportpages_publish: when this device is not signed in, it creates their free SupportPages.io account (signup=true), or signs in instead if they say they already have one. Never start sign-in or upload before the user says yes; if they decline or move on, do not ask again.',
+            ...(hosting_invitation.id === 'keep_up_to_date' ? ['Keeping articles up to date also needs the repository connected. Once supportpages_publish has hosted the articles, call supportpages_status and give the user its repository connection link (repository_connection.connect_url) to finish setting it up.'] : [])]
+          : ['Do not automatically ask whether to publish or start sign-in, and do not add a hosting invitation to this completion. If the user asks to host or share it, ask whether to sign in or create a free SupportPages.io account, then use supportpages_publish.']),
         'If the user asks to stop hosting reminders, call supportpages_set_hosting_reminders with enabled=false. Enable them again only when requested.',
         ...(defaultFolder ? ['The output folder is usually ignored by git: suggest copying index.md and its screenshots into the docs.'] : []),
       ] };
