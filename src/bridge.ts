@@ -9,6 +9,8 @@ import { z } from 'zod';
 import { resolveAction, requireExecution } from './actions.js';
 import { ApiClient, connectionStateRoot } from './api.js';
 import { preferences, defaultPreferences } from './settings.js';
+import { saveDevicePreferences } from './preferences.js';
+import { defaultConfigDir } from './reminders.js';
 import { Workspace } from './workspace.js';
 import { bindingSchema, localSchema as localSettingsSchema, manifestSchema, contextSchema, importResponseSchema, remoteArticleSchema, remoteId, idSchema, articleType, type Binding, type LocalSettings } from './schema.js';
 import { createManifest, parse, preview, snapshot, verifyBundle } from './artifacts.js';
@@ -67,6 +69,11 @@ export class Bridge {
   /** Needs no help centre or sign-in: the preference belongs to this device's local folders. */
   hostingReminders(enabled?: boolean) {
     return new HostingReminders(this.configDir).preference(this.api.origin, enabled);
+  }
+  /** The device preference read by the article offer hook. */
+  async articleReminders(enabled: boolean) {
+    await saveDevicePreferences(this.configDir ?? defaultConfigDir(), { article_reminders: enabled });
+    return { enabled, scope: 'this_device', message: `WTFM article reminders are now ${enabled ? 'on' : 'off'} on this device.` };
   }
   get runs() { return new Runs(this.ws, this.stateRoot, this.sessionId); }
   async resumeWriterCompletion() {

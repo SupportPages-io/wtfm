@@ -2,7 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { lstat, readFile, readdir, realpath, rm } from 'node:fs/promises';
 import { backup, expand, privateJson } from './install.mjs';
-import { retirePublicSkillLinks } from './article-skills.mjs';
+import { retirePublicSkillLinks, withoutReminderHooks } from './article-skills.mjs';
 import { Cancelled } from './terminal.mjs';
 import { fail } from '../../dist/errors.js';
 import { claudePermissionRules } from './claude-permissions.mjs';
@@ -114,6 +114,14 @@ export async function removeIntegration(options, { home = os.homedir(), env = pr
       const marker = client === 'claude' ? '<!-- Managed by SupportPages: article writer v1 -->' : '# Managed by SupportPages: article writer v1';
       if (contents?.includes(marker)) { removals.push(filename); descriptions.push(`${client === 'claude' ? 'Claude Code' : 'Codex'} WTFM agent`); }
     }
+    if (clients.includes('codex') && (!options.dev && !options['api-url'] || records.some(record => record.selected && record.receipt.clients.includes('codex'))) && !records.some(record => record.remaining.includes('codex'))) {
+      const filename = path.join(codexDir, 'hooks.json');
+      const hooks = await json(filename);
+      if (object(hooks?.hooks)) {
+        const kept = { ...hooks, hooks: withoutReminderHooks(hooks.hooks) };
+        if (JSON.stringify(kept) !== JSON.stringify(hooks)) { edits.set(filename, kept); descriptions.push('WTFM Codex article reminder hooks'); }
+      }
+    }
     if (clients.includes('claude')) {
       const filename = path.join(claudeDir, 'settings.json');
       settings = await json(filename);
@@ -132,7 +140,11 @@ export async function removeIntegration(options, { home = os.homedir(), env = pr
             ? { ...group, hooks: group.hooks.filter(item => !ours(item.command)) } : group)
             .filter(group => !Array.isArray(group.hooks) || group.hooks.length);
         }
-        if (JSON.stringify(settings) !== before) { edits.set(filename, settings); descriptions.push('WTFM Claude permissions and unused trace hook'); }
+        if ((!options.dev && !options['api-url'] || records.some(record => record.selected && record.receipt.clients.includes('claude'))) && !records.some(record => record.remaining.includes('claude'))) {
+          // The article reminder hooks run the installation's own script, which goes with it.
+          if (object(settings.hooks)) settings.hooks = withoutReminderHooks(settings.hooks);
+        }
+        if (JSON.stringify(settings) !== before) { edits.set(filename, settings); descriptions.push('WTFM Claude permissions and unused hooks'); }
       }
     }
   }

@@ -205,7 +205,9 @@ export async function runInstaller(options, dependencies) {
     if (!options.embedded) ui.line(`  Using ${skills.directory}`);
     const node = dependencies.node ?? process.execPath;
     const hook = await stablePath(path.join(skills.directory, 'generate-illustrated-article', 'scripts', 'trace_hook.js'), installRoot);
-    await installArticleSkills({ home, client, directory: skills.directory, previousDirectory, writeJson: privateJson, env, dataDir, hookCommand: [node, hook] });
+    const reminders = await stablePath(path.join(installRoot, 'scripts', 'article-reminders.mjs'), installRoot);
+    await installArticleSkills({ home, client, directory: skills.directory, previousDirectory, writeJson: privateJson, env, dataDir, hookCommand: [node, hook],
+      reminderCommand: [node, reminders, '--config-dir', configDir] });
     if (!await ensureRenderer(skills.directory, run, { node, ui })) {
       throw new Error('Chromium for article screenshots could not be downloaded. Check your network connection, then rerun setup; completed steps are kept.');
     }

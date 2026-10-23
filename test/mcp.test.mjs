@@ -14,7 +14,7 @@ test('real stdio process negotiates MCP, exposes tools and returns structured to
   await client.connect(transport);
   t.after(()=>client.close());
   const {tools}=await client.listTools();
-  assert.equal(tools.length,47);
+  assert.equal(tools.length,48);
   const setup = tools.find(tool => tool.name === 'supportpages_setup_hosted');
   assert.equal(setup.annotations.readOnlyHint, false);
   assert.ok(setup.inputSchema.required.includes('action'));

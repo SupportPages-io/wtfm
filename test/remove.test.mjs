@@ -51,9 +51,13 @@ async function fixture(t, { custom = false } = {}) {
   }
   await privateJson(claudeFile, { mcpServers, theme: 'dark', projects: { '/keep': { allowedTools: ['Read'] } } });
   await writeFile(path.join(codex, 'config.toml'), '# other settings retained\n');
+  await privateJson(path.join(codex, 'hooks.json'), { hooks: { SessionStart: [{ hooks: [{ command: 'keep-codex-hook' }, { command: "'/node' '/data/current/mcp/scripts/article-reminders.mjs' 'session-start'" }] }],
+    PostToolUse: [{ matcher: 'Bash', hooks: [{ command: "'/node' '/data/current/mcp/scripts/article-reminders.mjs' 'after-bash'" }] }] } });
   const trace = "'" + path.join(home, '.rtfm-skills/generate-illustrated-article/scripts/trace_hook.sh') + "'";
   await privateJson(path.join(claude, 'settings.json'), { permissions: { allow: ['Read', 'mcp__supportpages__supportpages_publish_article', 'mcp__supportpages-dev__supportpages_publish_article'], deny: ['Bash'] },
-    hooks: { PostToolUse: [{ matcher: '*', hooks: [{ command: trace }, { command: 'unrelated trace_hook.sh' }] }] } });
+    hooks: { PostToolUse: [{ matcher: '*', hooks: [{ command: trace }, { command: 'unrelated trace_hook.sh' }] },
+      { matcher: 'Bash', hooks: [{ command: "'/node' '/data/current/mcp/scripts/article-reminders.mjs' 'pull-request'" }] }],
+    SessionStart: [{ hooks: [{ command: 'keep-session-hook' }, { command: "'/node' '/data/current/mcp/scripts/article-reminders.mjs' 'session-start'" }] }] } });
   await privateJson(path.join(config, 'credentials/keep.json'), { private: 'kept' });
   return { root, home, config, claude, codex, claudeFile, skills, deps, logs, calls, servers,
     options: { command: 'remove', 'config-dir': config } };
@@ -71,7 +75,9 @@ test('removal disconnects both clients and retires owned files while preserving 
   assert.deepEqual(config.projects, { '/keep': { allowedTools: ['Read'] } });
   const settings = await json(path.join(f.claude, 'settings.json'));
   assert.deepEqual(settings.permissions, { allow: ['Read'], deny: ['Bash'] });
-  assert.deepEqual(settings.hooks.PostToolUse[0].hooks, [{ command: 'unrelated trace_hook.sh' }]);
+  assert.deepEqual(settings.hooks.PostToolUse, [{ matcher: '*', hooks: [{ command: 'unrelated trace_hook.sh' }] }]);
+  assert.deepEqual(settings.hooks.SessionStart, [{ hooks: [{ command: 'keep-session-hook' }] }]);
+  assert.deepEqual((await json(path.join(f.codex, 'hooks.json'))).hooks, { SessionStart: [{ hooks: [{ command: 'keep-codex-hook' }] }] });
   for (const filename of [path.join(f.claude, 'agents/supportpages-io.md'), path.join(f.codex, 'agents/supportpages-io.toml'), path.join(f.claude, 'skills/generate-illustrated-article'), path.join(f.config, 'installations/supportpages.json')]) await absent(filename);
   assert.equal(Object.keys(f.servers).length, 0);
   assert.ok((await lstat(path.join(f.claude, 'skills/detect-project'))).isSymbolicLink());

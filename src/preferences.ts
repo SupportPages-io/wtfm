@@ -9,6 +9,8 @@ export type DevicePreferences = {
   install_id?: string;
   telemetry?: boolean;
   telemetry_notice_shown?: boolean;
+  /** False after the user turns off the WTFM article offers. */
+  article_reminders?: boolean;
   [key: string]: unknown;
 };
 

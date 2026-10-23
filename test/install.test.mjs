@@ -93,8 +93,10 @@ test('article installation prepares the renderer, registers the Node trace hook 
   assert.ok(f.calls.some(call => call.cmd === process.execPath && call.args.some(arg => String(arg).includes('executablePath'))), 'Chromium is checked');
   assert.ok(!f.calls.some(call => call.cmd === 'bash' && call.args[0] === path.join(f.skills, 'install.sh')));
   const settings = JSON.parse(await readFile(path.join(f.home, '.claude/settings.json'), 'utf8'));
-  assert.equal(settings.hooks.PostToolUse.length, 1);
+  assert.equal(settings.hooks.PostToolUse.length, 2);
   assert.equal(settings.hooks.PostToolUse[0].hooks[0].command, `'${process.execPath}' '${path.join(await realpath(f.skills), 'generate-illustrated-article/scripts/trace_hook.js')}'`);
+  assert.match(settings.hooks.PostToolUse[1].hooks[0].command, /article-reminders\.mjs' '--config-dir' '.+' 'after-bash'$/);
+  assert.equal(settings.hooks.SessionStart, undefined);
   assert.deepEqual(settings.permissions.allow, ['mcp__supportpages']);
   assert.deepEqual(settings.permissions.ask, ['mcp__supportpages__supportpages_delete_article', 'mcp__supportpages__supportpages_unpublish_article']);
   assert.match(await readFile(path.join(f.home, '.claude/agents/supportpages-io.md'), 'utf8'), /name: supportpages-io/);
