@@ -9,6 +9,8 @@ import { z } from 'zod';
 import { resolveAction, requireExecution } from './actions.js';
 import { connectionStateRoot } from './api.js';
 import { preferences, defaultPreferences } from './settings.js';
+import { saveDevicePreferences } from './preferences.js';
+import { defaultConfigDir } from './reminders.js';
 import { bindingSchema, localSchema as localSettingsSchema, manifestSchema, contextSchema, importResponseSchema, remoteArticleSchema, remoteId, idSchema, articleType } from './schema.js';
 import { createManifest, parse, preview, snapshot, verifyBundle } from './artifacts.js';
 import { fail, publicError } from './errors.js';
@@ -19,7 +21,7 @@ import { articleChatInstruction, localChatInstruction, articleLink } from './art
 import { composeWritingStyle } from './writing-style.js';
 import { exportArticle } from './export.js';
 import { executionSettings } from './agent-settings.js';
-import { LocalSetup } from './local-setup.js';
+import { LocalSetup, analysisOutputContract } from './local-setup.js';
 import { localArticleInventory } from './local-inventory.js';
 import { ProjectSync } from './sync.js';
 const exec = promisify(execFile);
@@ -29,18 +31,26 @@ import { RepositoryReminders, repositoryShowText } from './repository-benefits.j
 import { HostingReminders, hostingShowText } from './hosting-benefits.js';
 import { activeTelemetry, secondsSince, track } from './telemetry.js';
 import { CLI_NAME } from './brand.js';
-/** What to do about an analysis that is missing or was rejected by validation. */
+/** What a missing or rejected analysis means for the next article. No separate
+ * step is needed: the next article's writer analyses the project first. */
 export function analysisInstruction(analysis) {
     if (analysis.status === 'ready')
         return undefined;
     const appType = typeof analysis.app_type === 'string' ? analysis.app_type : undefined;
     const reason = analysis.error?.message ? `${analysis.error.message} ` : '';
-    if (appType) {
-        return `${reason}Project detection needs the app type it asked for. In the project terminal run ${CLI_NAME} analyse --app-type ${appType}, or rerun the detect-project skill with app_type=${appType}.`;
-    }
+    const next = 'Create the article as usual; it needs no separate step and no terminal command.';
+    if (appType)
+        return `${reason}Project detection needs app_type=${appType}: the next article reruns detection with that app type before writing, which takes a few extra minutes. ${next}`;
     return analysis.status === 'invalid'
-        ? `${reason}Run ${CLI_NAME} analyse in the project terminal to rebuild the project analysis.`
-        : `Run ${CLI_NAME} analyse in the project terminal before creating an article.`;
+        ? `${reason}The saved project analysis is out of date: the next article analyses the app again before writing, which takes a few extra minutes. ${next}`
+        : `This project has not been analysed yet: the first article analyses the app before writing, which takes a few extra minutes. ${next}`;
+}
+/** Writer steps that analyse the project before writing, into the run's analysis directory. */
+function analysisSteps(skillsDir, analysisPath, articlePath, appType) {
+    return [
+        `This project has no usable analysis yet, so analyse it before writing. Read ${path.join(skillsDir, 'detect-project', 'SKILL.md')} and run detect-project in full for the workspace${appType ? ` with app_type=${appType}` : ''}. For every detect-project command set RTFM_ANALYZE=full and RTFM_OUTPUT_DIR=${analysisPath}; summary.md and overview.txt are mandatory. ${analysisOutputContract(analysisPath)}`,
+        `After the analysis, set RTFM_OUTPUT_DIR back to ${articlePath} and generate the article. If the analysis cannot be completed, stop and report the block instead of writing the article.`,
+    ];
 }
 /** Counts a locally written article's end state: saved in the folder, or uploaded to a help centre. */
 function trackArticle(run, outcome, errorCode) {
@@ -78,6 +88,11 @@ export class Bridge {
     /** Needs no help centre or sign-in: the preference belongs to this device's local folders. */
     hostingReminders(enabled) {
         return new HostingReminders(this.configDir).preference(this.api.origin, enabled);
+    }
+    /** The device preference read by the article offer hook. */
+    async articleReminders(enabled) {
+        await saveDevicePreferences(this.configDir ?? defaultConfigDir(), { article_reminders: enabled });
+        return { enabled, scope: 'this_device', message: `WTFM article reminders are now ${enabled ? 'on' : 'off'} on this device.` };
     }
     get runs() { return new Runs(this.ws, this.stateRoot, this.sessionId); }
     async resumeWriterCompletion() {
@@ -195,7 +210,7 @@ export class Bridge {
         // problem; only a folder already linked to a help centre needs a credential.
         if (destination === 'none' && !this.api.configured())
             return { ...base, status: 'setup_required',
-                instructions: 'This folder is not set up yet and no account is needed to set it up. It can save articles in the project as Markdown and screenshots with no sign-in, or publish them to a SupportPages.io help centre for a public URL, editor review and AI answers. Do not start sign-in on your own and do not present hosting as required: ask which the user wants, then call supportpages_init (signup=true only when they chose to create a new account).' };
+                instructions: 'This folder is not set up yet and no account is needed to set it up. It can save articles in the project as Markdown and screenshots with no sign-in, or publish them to a SupportPages.io help centre for a public URL, editor review and AI answers. Do not start sign-in on your own and do not present hosting as required: ask which the user wants. To save locally, call supportpages_init with local=true; this never signs in or opens a browser. To use a help centre, call supportpages_init (signup=true only when they chose to create a new account).' };
         if (!this.api.configured())
             return { ...base, status: 'authentication_required', instructions: 'This device is not signed in. Do not start sign-in on your own: if the user wants to host articles or read the hosted help centre, ask whether to sign in or create a free SupportPages.io account, then call supportpages_init (signup=true for a new account) to open browser approval.' };
         try {
@@ -323,7 +338,13 @@ export class Bridge {
             await this.runs.assertAvailable();
             if (context.local ? await this.destination() !== 'local' : (await this.binding()).project_id !== context.project.id)
                 fail('destination_mismatch', 'The connected help centre changed while preparing this article. Start again with the current connection.');
-            const analysis = await this.setup.requireAnalysis();
+            // A project without a usable analysis is analysed by this run's writer first;
+            // complete_article saves it. app_type comes from an incomplete detection.
+            const analysis = await this.setup.analysis();
+            const analysed = analysis.status === 'ready' ? analysis : undefined;
+            const appType = !analysed && typeof analysis.app_type === 'string' ? analysis.app_type : undefined;
+            const analysisDir = analysed ? undefined : `${this.stateRoot}/setup/tasks/${randomUUID()}`;
+            const codebaseDir = analysed?.codebase_dir ?? '.';
             const scope = createHash('sha256').update(`${this.api.dev}\n${this.api.origin}`).digest('hex').slice(0, 16);
             const articleSlug = input.allow_duplicate ? `${slug.slice(0, 100)}-${randomUUID().slice(0, 8)}` : slug;
             const artifactDir = `${this.stateRoot}/work/${context.local ? 'local' : context.project.id}/${articleSlug}`;
@@ -335,11 +356,14 @@ export class Bridge {
                 if (await this.ws.exists(directory))
                     fail('output_exists', 'Work for this topic already exists. Check the existing article status and continue that article instead of starting a duplicate.');
             }
-            const run = { writer_token: randomUUID(), codebase_dir: analysis.codebase_dir, id: randomUUID(), local_article_id: randomUUID(), artifact_dir: artifactDir, started_at: new Date().toISOString(), section_id: input.section_id ?? null, article_type: input.article_type, ...(context.progressive_articles ? { progress: { attempt: randomUUID(), sequence: 0 } } : {}), status: 'prepared', skills_version: await this.version(), title: input.title, ...(local ? { local_export: { directory: local.export_dir } } : { api_origin: this.api.origin, project_id: context.project.id }), prefer_background: input.prefer_background ?? savedPreferences.prefer_background, open_when_ready: input.open_when_ready ?? savedPreferences.open_when_ready, phase: 'prepared', session_id: this.sessionId };
-            const writerWorkspace = await this.ws.resolve(analysis.codebase_dir);
+            const run = { writer_token: randomUUID(), codebase_dir: codebaseDir, ...(analysisDir ? { analysis_dir: analysisDir, ...(appType ? { analysis_app_type: appType } : {}) } : {}), id: randomUUID(), local_article_id: randomUUID(), artifact_dir: artifactDir, started_at: new Date().toISOString(), section_id: input.section_id ?? null, article_type: input.article_type, ...(context.progressive_articles ? { progress: { attempt: randomUUID(), sequence: 0 } } : {}), status: 'prepared', skills_version: await this.version(), title: input.title, ...(local ? { local_export: { directory: local.export_dir } } : { api_origin: this.api.origin, project_id: context.project.id }), prefer_background: input.prefer_background ?? savedPreferences.prefer_background, open_when_ready: input.open_when_ready ?? savedPreferences.open_when_ready, phase: 'prepared', session_id: this.sessionId };
+            const writerWorkspace = await this.ws.resolve(codebaseDir);
             const outputPath = await this.ws.resolve(artifactDir);
-            const writerArtifactDir = analysis.codebase_dir === '.' ? artifactDir : outputPath;
-            const contextFile = await this.ws.writeJson(`${this.stateRoot}/runs/${run.id}/context.json`, { ...context, project_overview: analysis.overview, analysis_summary: analysis.summary, project_name: context.project.name, article_title: input.title, article_description: input.description ?? '', article_type: input.article_type });
+            const writerArtifactDir = codebaseDir === '.' ? artifactDir : outputPath;
+            const contextFile = await this.ws.writeJson(`${this.stateRoot}/runs/${run.id}/context.json`, { ...context, ...(analysed ? { project_overview: analysed.overview, analysis_summary: analysed.summary } : {}), project_name: context.project.name, article_title: input.title, article_description: input.description ?? '', article_type: input.article_type });
+            // The CLI's analysis tasks keep their context beside the output; this creates the directory too.
+            if (analysisDir)
+                await this.ws.writeJson(`${analysisDir}/context.json`, { ...context, project_name: context.project.name });
             await this.ws.writeJson(`${this.stateRoot}/runs/${run.id}/run.json`, run);
             await this.ws.writeJson(`${this.stateRoot}/active-run.json`, run);
             // Reserve a preview before handing off to the host, including foreground writers.
@@ -353,6 +377,7 @@ export class Bridge {
             const environment = { RTFM_WORKSPACE: writerWorkspace, RTFM_CONTEXT_FILE: contextFile, RTFM_OUTPUT_DIR: outputPath, RTFM_SKILLS_DIR: this.skillsDir, RTFM_MAX_IMAGES: String(writerScreenshotLimit), PATH: path.dirname(process.execPath) + path.delimiter + (process.env.PATH ?? '') };
             const savedTo = local ? path.posix.join(local.export_dir, articleSlug) : undefined;
             return { status: 'prepared', run_id: run.id, artifact_dir: artifactDir, environment, ...link,
+                ...(analysisDir ? { project_analysis: 'included', analysis_message: 'I’ll analyse your app first, so this first article takes a few extra minutes.' } : {}),
                 ...(local ? { local: true, saved_to: savedTo, link_message: `The article will be saved to ${savedTo}.`, link_instructions: localChatInstruction } : {}),
                 prefer_background: run.prefer_background, open_when_ready: run.open_when_ready,
                 task_brief: { name: writerAgentName, claude_model: writerModel, codex_model: codexWriter.model, codex_reasoning_effort: codexWriter.effort,
@@ -361,13 +386,15 @@ export class Bridge {
                     environment, entrypoint, execution: entrypoint.execution, completion: entrypoint.completion, editor_url: link.editor_url,
                     instructions: [entrypoint.instruction, entrypoint.execution.instruction,
                         `The application and its .rtfm cache are in ${writerWorkspace}. Use ${outputPath} as OUT for every skill command instead of the default ./output/articles directory. Keep all article artifacts there so the MCP can observe and upload them.`,
-                        `Read ${path.join(this.skillsDir, 'detect-project', 'SKILL.md')} and run detect-project if the project map is missing, stale, or reports an incomplete detection or a wrong app_type. An incomplete map names the app type it needs (app_type=…): rerun detection with that app type before generating, and report the block if it cannot be resolved.`,
+                        ...(analysisDir ? analysisSteps(this.skillsDir, await this.ws.resolve(analysisDir), outputPath, appType)
+                            : [`Read ${path.join(this.skillsDir, 'detect-project', 'SKILL.md')} and run detect-project if the project map is missing, stale, or reports an incomplete detection or a wrong app_type. An incomplete map names the app type it needs (app_type=…): rerun detection with that app type before generating, and report the block if it cannot be resolved.`]),
                         'Generate the requested article using the instructions returned by the entry check and the supplied context and environment.',
                         'Finish all images, final rendering and fidelity validation. Do not edit application source code.',
                         entrypoint.completion.instruction,
                         writerPermissionInstruction,
                         'Report success only after the full pipeline finishes. Report unresolved failures to the main agent. Do not call MCP tools, upload or publish.'] },
                 instructions: [
+                    ...(analysisDir ? ['This project has not been analysed yet, so the writer analyses it before writing. Before launching, tell the user in one line, using analysis_message: the app is analysed first, so this first article takes a few extra minutes. Do not ask the user to run anything.'] : []),
                     local ? localChatInstruction : link.link_instructions,
                     writerLaunchInstruction,
                     codexWriterLaunchInstruction,
@@ -637,10 +664,36 @@ export class Bridge {
             await this.runs.save({ ...run, ...adopted, phase: 'ready_for_review', remote: result.article, error: undefined });
         return result;
     }
+    /** Saves the analysis a run's writer produced, as `wtfm analyse` does. The article
+     * never depends on it: when the analysis is unusable, the next article analyses again. */
+    async adoptRunAnalysisUnlocked(run) {
+        if (!run.analysis_dir || !['prepared', 'finalized'].includes(run.status) || (await this.setup.analysis()).status === 'ready')
+            return undefined;
+        try {
+            const target = await this.setup.validate(run.analysis_dir);
+            let commit = null;
+            try {
+                const head = (await exec('git', ['rev-parse', 'HEAD'], { cwd: await this.ws.resolve(target.codebase_dir), timeout: 5000 })).stdout.trim();
+                if (/^[a-f0-9]{40,64}$/.test(head))
+                    commit = head;
+            }
+            catch { /* A non-git project keeps an unknown source commit. */ }
+            await this.setup.accept(run.analysis_dir, 'article writer', run.skills_version ?? await this.version(), commit, target.codebase_dir);
+            return { status: 'saved', message: 'The project analysis was saved, so later articles skip it.' };
+        }
+        catch (error) {
+            return { status: 'not_saved', message: `The article is complete, but the project analysis it ran could not be saved (${publicError(error).message}). The next article analyses the project again.` };
+        }
+    }
     async complete(input, options = {}) {
         if (!input.completed)
             fail('incomplete_generation', 'Confirm successful completion of the entire writing task.');
         this.relay.stop();
+        const project_analysis = await this.lock(async () => this.adoptRunAnalysisUnlocked(await this.runs.read(input.run_id)));
+        const result = await this.deliverCompleted(input, options);
+        return project_analysis && result && typeof result === 'object' ? { ...result, project_analysis } : result;
+    }
+    deliverCompleted(input, options) {
         return this.lock(async () => {
             let run = await this.runs.read(input.run_id);
             if (!['prepared', 'finalized'].includes(run.status))
@@ -770,15 +823,15 @@ export class Bridge {
         }
         return { status: 'saved', run_id: run.id, slug, artifact_dir: run.artifact_dir, markdown_path: run.export_path,
             export_dir: path.dirname(run.export_path), image_count: imageCount, preview_uri, ...articleLink(run), local: true,
-            ...(hosting_invitation ? { hosting_invitation, show_to_user: hostingShowText(hosting_invitation) } : {}),
+            ...(hosting_invitation ? { hosting_invitation, show_to_user: hostingShowText(hosting_invitation, this.api.configured()) } : {}),
             instructions: [
                 ...(hosting_invitation ? ['Show show_to_user verbatim as its own paragraph, right after the saved path. It is part of this result, not optional commentary.'] : []),
                 localChatInstruction,
                 `The article is saved. Show ${run.export_path} as the deliverable in your completion message, with the number of screenshots when known.`,
-                'Do not automatically ask whether to publish or start sign-in. If the user explicitly asks to host the saved articles, use supportpages_publish.',
                 ...(hosting_invitation
-                    ? ['If the user then asks to host it, ask whether to sign in or create a free SupportPages.io account and call supportpages_publish. Never start sign-in or upload without that request, and never ask another mandatory question.']
-                    : ['Do not add a hosting invitation to this completion. If the user asks to host or share it, ask whether to sign in or create a free SupportPages.io account, then use supportpages_publish.']),
+                    ? ['show_to_user ends with a question. If the user says yes, call supportpages_publish: when this device is not signed in, it creates their free SupportPages.io account (signup=true), or signs in instead if they say they already have one. Never start sign-in or upload before the user says yes; if they decline or move on, do not ask again.',
+                        ...(hosting_invitation.id === 'keep_up_to_date' ? ['Keeping articles up to date also needs the repository connected. Once supportpages_publish has hosted the articles, call supportpages_status and give the user its repository connection link (repository_connection.connect_url) to finish setting it up.'] : [])]
+                    : ['Do not automatically ask whether to publish or start sign-in, and do not add a hosting invitation to this completion. If the user asks to host or share it, ask whether to sign in or create a free SupportPages.io account, then use supportpages_publish.']),
                 'If the user asks to stop hosting reminders, call supportpages_set_hosting_reminders with enabled=false. Enable them again only when requested.',
                 ...(defaultFolder ? ['The output folder is usually ignored by git: suggest copying index.md and its screenshots into the docs.'] : []),
             ] };
@@ -898,6 +951,8 @@ export class Bridge {
                 project_overview: previousContext.project_overview, analysis_summary: previousContext.analysis_summary, project_name: context.project.name });
             const writerWorkspace = await this.ws.resolve(run.codebase_dir ?? '.');
             const outputPath = await this.ws.resolve(run.artifact_dir);
+            const pendingAnalysis = run.analysis_dir && (await this.setup.analysis()).status !== 'ready'
+                ? analysisSteps(this.skillsDir, await this.ws.resolve(run.analysis_dir), outputPath, run.analysis_app_type) : [];
             const link = articleLink(run);
             this.relay.start(run.id);
             return { run_id: run.id, ...link, prefer_background: run.prefer_background, ...(local ? { local: true, link_instructions: localChatInstruction } : {}),
@@ -905,7 +960,7 @@ export class Bridge {
                     prefer_background: run.prefer_background, reporting_instructions: writerReportingInstruction(run.prefer_background === true),
                     run_id: run.id, entrypoint, execution: entrypoint.execution, completion: entrypoint.completion, editor_url: link.editor_url, writer_instructions: claudeWriterAgents[writerAgentType].prompt, workspace: writerWorkspace, artifact_dir: run.codebase_dir && run.codebase_dir !== '.' ? outputPath : run.artifact_dir,
                     environment: { RTFM_WORKSPACE: writerWorkspace, RTFM_CONTEXT_FILE: contextFile, RTFM_OUTPUT_DIR: outputPath, RTFM_SKILLS_DIR: this.skillsDir, RTFM_MAX_IMAGES: String(writerScreenshotLimit), PATH: path.dirname(process.execPath) + path.delimiter + (process.env.PATH ?? '') },
-                    instructions: [entrypoint.instruction, entrypoint.execution.instruction, `The application and its .rtfm cache are in ${writerWorkspace}. Use ${outputPath} as OUT for every skill command instead of the default ./output/articles directory.`, `Follow the article instructions returned by the entry check. Resume this article in ${outputPath}; retain valid prose and images, finish missing or failed work, rerun final rendering and fidelity validation. Do not edit app source, upload, publish or call MCP tools.`, entrypoint.completion.instruction] },
+                    instructions: [entrypoint.instruction, entrypoint.execution.instruction, `The application and its .rtfm cache are in ${writerWorkspace}. Use ${outputPath} as OUT for every skill command instead of the default ./output/articles directory.`, ...pendingAnalysis, `Follow the article instructions returned by the entry check. Resume this article in ${outputPath}; retain valid prose and images, finish missing or failed work, rerun final rendering and fidelity validation. Do not edit app source, upload, publish or call MCP tools.`, entrypoint.completion.instruction] },
                 instructions: `${local ? localChatInstruction : link.link_instructions} ${writerLaunchInstruction} ${codexWriterLaunchInstruction} ${backgroundParentInstruction} Launch this recovery task using the host coding agent without worktree isolation, then report started with update_run. On success call complete_article.${local ? ' The article is saved locally when complete; there is no preview link.' : ' Show the same preview link; do not open a second tab.'}` };
         });
     }

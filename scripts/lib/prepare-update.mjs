@@ -1,7 +1,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import { chmod, copyFile, lstat, readFile, realpath, rename, rm } from 'node:fs/promises';
-import { ARTICLE_SKILLS, installTraceHook } from './article-skills.mjs';
+import { ARTICLE_SKILLS, REMINDER_HOOK, installReminderHooks, installTraceHook, reminderHookFile } from './article-skills.mjs';
 import { command, exists, privateJson } from './install.mjs';
 import { ensureRenderer, rendererReady } from './renderer.mjs';
 import { refreshCodexSkill } from './codex-skill.mjs';
@@ -39,6 +39,30 @@ async function migrateTraceHook(root, { home, env }) {
     path.join(current, 'runtime', 'bin', 'node'),
     path.join(current, 'mcp', 'engine', 'generate-illustrated-article', 'scripts', 'trace_hook.js'),
   ] });
+}
+
+/** Installations set up for Claude Code (they carry the managed trace hook) or
+ * Codex (its config runs this installation's server) gain the article reminder
+ * hooks on update; existing reminder hooks are kept. */
+async function addReminderHooks(root, { home, env }) {
+  const current = path.join(root, 'current');
+  const hookCommand = [path.join(current, 'runtime', 'bin', 'node'), path.join(current, 'mcp', 'scripts', 'article-reminders.mjs')];
+  const read = async file => { try { return await readFile(file, 'utf8'); } catch { return undefined; } };
+  const commands = text => {
+    try {
+      const hooks = JSON.parse(text ?? '{}').hooks ?? {};
+      return Object.values(hooks).flatMap(groups => Array.isArray(groups) ? groups : []).flatMap(group => Array.isArray(group?.hooks) ? group.hooks : []).map(hook => String(hook?.command ?? ''));
+    } catch { return undefined; }
+  };
+  const claude = commands(await read(reminderHookFile({ home, env, client: 'claude' })));
+  if (claude?.some(command => /trace_hook\.js/.test(command) && command.includes(current)) && !claude.some(command => REMINDER_HOOK.test(command))) {
+    await installReminderHooks({ home, env, writeJson: privateJson, hookCommand, client: 'claude' });
+  }
+  const codexConfig = await read(path.join(env.CODEX_HOME || path.join(home, '.codex'), 'config.toml'));
+  const codex = commands(await read(reminderHookFile({ home, env, client: 'codex' })));
+  if (codexConfig?.includes(root) && codex && !codex.some(command => REMINDER_HOOK.test(command))) {
+    await installReminderHooks({ home, env, writeJson: privateJson, hookCommand, client: 'codex' });
+  }
 }
 
 export const MANAGED_LAUNCHER = '# SupportPages managed launcher';
@@ -88,6 +112,7 @@ export async function prepareUpdate(previous, next, { run = command, env = proce
     if (!await ensureRenderer(engine, run, { node })) throw Error('Could not prepare the updated article renderer. The current release is still active.');
   }
   if (await exists(engine)) await migrateTraceHook(path.resolve(next, '../../..'), { home, env });
+  if (await exists(path.join(next, 'scripts', 'article-reminders.mjs'))) await addReminderHooks(path.resolve(next, '../../..'), { home, env });
   await refreshWriters({ home, env });
   await refreshCodexSkill({ home, env });
   await ensureCommandAlias(path.resolve(next, '../../..'));

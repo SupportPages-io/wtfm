@@ -526,7 +526,6 @@ async function yoloStatus(bridge, status, options, deps) {
   try { summarizeYolo(followed.operation,{ui}); } catch(error) { ui.line(error.message); }
 }
 
-const cliNotice = notice => notice.replace('Ask me to turn this off', `Run ${CLI_NAME} telemetry off to stop it`);
 /** wtfm telemetry on|off|status: device-wide, so it needs no project folder. */
 export async function telemetryCommand(action, options, env=process.env) {
   const dev=options.dev ?? developmentMode(env.SUPPORTPAGES_DEV);
@@ -554,8 +553,6 @@ export async function runCli(options, supplied) {
   const config=await environment(root,options,env);
   const telemetry=configureTelemetry({configDir:config.configDir,origin:config.origin,installRoot,env,fetcher:deps.fetcher});
   telemetry.start();
-  const notice=await telemetry.notice();
-  if(notice) ui.info ? ui.info(cliNotice(notice)) : ui.line(cliNotice(notice));
   const installed=await installation(config,installRoot);
   let skillsDir=await installationSkills(installRoot, expand(options['skills-dir'] ?? installed?.skills ?? env.RTFM_SKILLS_DIR ?? path.join(installRoot,'engine')));
   const session=(deps.sessionFactory ?? (value=>new Session(value)))({workspace:root,cwd:root,...config,skillsDir});

@@ -69,14 +69,55 @@ export async function installTraceHook({ home, env, writeJson, hookCommand }) {
   await writeJson(filename, settings);
 }
 
+export const REMINDER_HOOK = /article-reminders\.mjs/;
+
+/** Where each client reads user-level hooks: Claude Code's settings, and
+ * Codex's hooks.json (same `{ hooks: { Event: [groups] } }` shape). */
+export const reminderHookFile = ({ home, env = {}, client = 'claude' }) => client === 'codex'
+  ? path.join(env.CODEX_HOME || path.join(home, '.codex'), 'hooks.json')
+  : path.join(env.CLAUDE_CONFIG_DIR || path.join(home, '.claude'), 'settings.json');
+
+/** Hooks with the reminder hooks taken out, dropping groups and events they leave empty. */
+export const withoutReminderHooks = hooks => Object.fromEntries(Object.entries(hooks ?? {}).flatMap(([event, groups]) => {
+  if (!Array.isArray(groups)) return [[event, groups]];
+  const ours = hook => REMINDER_HOOK.test(String(hook?.command ?? ''));
+  const kept = groups.map(group => Array.isArray(group?.hooks) ? { ...group, hooks: group.hooks.filter(hook => !ours(hook)) } : group)
+    .filter(group => !Array.isArray(group?.hooks) || group.hooks.length);
+  return kept.length || !groups.some(group => Array.isArray(group?.hooks) && group.hooks.some(ours)) ? [[event, kept]] : [];
+}));
+
+/** Register the article offer hook with Claude Code or Codex: a help-article
+ * offer after a pull request or feature commit. Replaces earlier copies, including
+ * the session reminders earlier builds registered. Codex runs it once the user
+ * approves it in /hooks; an unchanged command keeps its approval. */
+export async function installReminderHooks({ home, env, writeJson, hookCommand, client = 'claude' }) {
+  const filename = reminderHookFile({ home, env, client });
+  const name = client === 'codex' ? 'Codex' : 'Claude Code';
+  let settings;
+  try { settings = JSON.parse(await readFile(filename, 'utf8')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; settings = {}; }
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw Error(`${name} hook settings are invalid. Repair ${filename} before installing the article reminders.`);
+  const groups = settings.hooks?.PostToolUse ?? [];
+  if (!Array.isArray(groups) || groups.some(group => !Array.isArray(group.hooks))) throw Error(`${name} PostToolUse settings are invalid. Repair them before installing the article reminders.`);
+  const command = mode => [...hookCommand, mode].map(shellQuote).join(' ');
+  const others = withoutReminderHooks(settings.hooks);
+  settings.hooks = { ...others,
+    PostToolUse: [...others.PostToolUse ?? [], { matcher: 'Bash', hooks: [{ type: 'command', command: command('after-bash') }] }],
+  };
+  await writeJson(filename, settings);
+}
+
 /** Connect the bundled article engine to the chosen clients. The engine's
  * dependencies live in the package's own node_modules, so nothing is installed
  * into the skill folders and no skills are exposed to public discovery. */
-export async function installArticleSkills({ home, client, directory, previousDirectory, writeJson, env = {}, dataDir, hookCommand }) {
+export async function installArticleSkills({ home, client, directory, previousDirectory, writeJson, env = {}, dataDir, hookCommand, reminderCommand }) {
   const clients = client === 'both' ? ['claude', 'codex'] : [client === 'manual' ? 'codex' : client];
   // Retire links before the anchor, so previous installations remain identifiable.
   const removed = await retirePublicSkillLinks({ home, clients, directory, previousDirectory, env });
   if (dataDir) await retireManagedAnchor({ home, dataDir });
   if (clients.includes('claude') && hookCommand) await installTraceHook({ home, env, writeJson, hookCommand });
+  if (reminderCommand) for (const target of ['claude', 'codex'].filter(target => client === target || client === 'both')) {
+    await installReminderHooks({ home, env, writeJson, hookCommand: reminderCommand, client: target });
+  }
   return removed;
 }
