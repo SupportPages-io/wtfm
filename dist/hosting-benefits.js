@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { z } from 'zod';
-import { ReminderJournal, claimDelivery, defaultConfigDir, reminderStateSchema, selectBenefit } from './reminders.js';
+import { ReminderJournal, claimDelivery, defaultConfigDir, reminderStateSchema, selectBenefit, takeAccepted } from './reminders.js';
+import { track } from './telemetry.js';
 export const hostingInvitationSchema = z.object({ id: z.string(), message: z.string() });
 /** Why an anonymous local folder would want a SupportPages.io account. Every
  * message must hold on the free plan a new account lands on. */
@@ -48,9 +49,21 @@ export class HostingReminders {
     }
     preference(origin, enabled) {
         return this.transaction(origin, state => {
-            if (enabled !== undefined)
+            if (enabled !== undefined) {
                 state.enabled = enabled;
+                track('nudge_preference', { nudge: 'hosting', enabled: enabled ? 'on' : 'off' });
+            }
             return { enabled: state.enabled, api_origin: origin, scope: 'local_folders_on_this_device' };
+        });
+    }
+    /** A local folder on this device just moved to a help centre: counts the
+     * latest invitation as taken up when it was recent (takeAccepted). */
+    accepted(origin) {
+        return this.transaction(origin, state => {
+            const taken = takeAccepted(state);
+            if (taken)
+                track('nudge_accepted', { nudge: 'hosting', benefit: taken.id, completions: taken.completions });
+            return taken?.id;
         });
     }
     complete(input) {
@@ -62,6 +75,8 @@ export class HostingReminders {
             const benefit = selectBenefit(state, hostingBenefits);
             const invitation = { id: benefit.id, message: benefit.message };
             state.articles[input.articleId] = invitation;
+            // completions: which local article it followed (the 1st, 2nd, 3rd, 6th...).
+            track('nudge_shown', { nudge: 'hosting', benefit: benefit.id, completions: state.count });
             return invitation;
         });
     }

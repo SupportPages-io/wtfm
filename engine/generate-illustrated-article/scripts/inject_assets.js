@@ -1279,6 +1279,16 @@ async function pickCardTheme(logoFilename, filenameLookup) {
  * the image manifest). logoPlate ("light"/"dark") adds a translucent contrast
  * plate behind the logo.
  */
+// The walkthrough's narration language (RTFM_CONTENT_LOCALE, else the
+// RTFM_CONTEXT_FILE's content_locale), for the title cards' lang attribute.
+function cardLanguage() {
+    let code = process.env.RTFM_CONTENT_LOCALE;
+    if (!code && process.env.RTFM_CONTEXT_FILE) {
+        try { code = JSON.parse(fs.readFileSync(process.env.RTFM_CONTEXT_FILE, 'utf8')).content_locale; } catch { /* no context */ }
+    }
+    return /^[a-z]{2,3}(?:-[A-Za-z0-9]+)*$/.test(String(code || '')) ? code : 'en';
+}
+
 function buildCardHtml({ kind, title, tagline, logoFilename, backgroundImage = null, theme = 'light', logoDataUri = null, logoPlate = null }) {
     const safeTitle = escapeText(title || '');
     const safeTagline = escapeText(tagline || '');
@@ -1293,7 +1303,7 @@ function buildCardHtml({ kind, title, tagline, logoFilename, backgroundImage = n
         ? `<div class="walkthrough-card-bg" style="background-image:url('${backgroundImage.replaceAll("'", '%27')}');"></div>`
         : '';
     return `<!doctype html>
-<html lang="en">
+<html lang="${cardLanguage()}">
 <head>
 <meta charset="utf-8">
 <title>${safeTitle}</title>
