@@ -149,7 +149,7 @@ test('a real MCP connection remains usable while an independent worker emits out
     import {writeFile} from 'node:fs/promises';
     process.stdout.write('This must never appear on the MCP transport\\n');
     process.stderr.write('This must never reach the agent\\n');
-    setTimeout(async () => { await writeFile('worker-finished', 'done'); }, 700);
+    setTimeout(async () => { await writeFile('worker-finished', 'done'); }, 3000);
   `);
   const transport = new StdioClientTransport({ command: process.execPath,
     args: [path.join(f.root, 'current/mcp/dist/index.js'), '--skills-dir', path.join(f.root, 'current/mcp/engine')],
@@ -160,10 +160,13 @@ test('a real MCP connection remains usable while an independent worker emits out
   t.after(() => client.close());
   await client.connect(transport);
   assert.ok((await client.listTools()).tools.length > 0);
+  // The worker finishes 3s after it starts: long enough that a slow runner
+  // (Intel macOS in CI) still completes the handshake first, which is what
+  // this asserts. The wait below then allows it up to 10s to finish.
   await assert.rejects(readFile(marker), { code: 'ENOENT' }, 'handshake does not wait for the worker');
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 200; i++) {
     try { if (await readFile(marker, 'utf8') === 'done') break; } catch {}
-    await delay(25);
+    await delay(50);
   }
   assert.equal(await readFile(marker, 'utf8'), 'done');
   assert.ok((await client.listTools()).tools.length > 0);
