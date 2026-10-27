@@ -49,6 +49,11 @@ Resolve the topic's source files and author the prose:
   - `article_description` — the one-sentence scope the user accepted for this article. Treat it as the **scope contract**: the finished article must cover exactly what it names — a mode, qualifier, or sub-feature it mentions is load-bearing (and feeds Phase 2's screen choice). It is context, not topic text: never append it to the title, the slug, or the route matching below.
   - `article_justification` — why this guide was accepted; use it to angle the introduction at the reader's real goal.
   - `writing_style` — composed voice guidance. Apply it to EVERY prose field you write (title, introduction, prerequisites, step titles and content, tips, summary). It overrides the default tone in the prose rules below; the grounding rules (verbatim UI names, no filler) always still hold.
+  - `content_locale` / `content_language` — the language every reader-facing word is written in (blank or `en` = English). Title, every block's title and content, and list items are in that language, and the type framing below uses the language's natural equivalent (French: how-to "Comment …" as a statement, concept "Comprendre …" or "Qu'est-ce que … ?", faq a question ending "?", troubleshooting never "Comment …"). For a non-English locale, run once in STEP 1.0:
+    ```bash
+    node ~/.rtfm-skills/generate-illustrated-article/scripts/find_locale_files.js "$RTFM_WORKSPACE" "<content_locale>"
+    ```
+    **Screen labels are never translated by you.** If it reports `has_locale: true`, every on-screen label — bold terms in the prose and the text in the mockups — is the product's own translation: find the key the view references (`t(".save")`, `$t('save')`, `R.string.save`, …) in `target_files`, quote that value verbatim, add that file to the step's `partials_expanded`, and cite it as the `found_in` of its `verbatim_evidence`; mockups render those translated strings. Where a key has no translation, or `has_locale` is `false`, quote the default-language string exactly as the source has it.
   - `regeneration_guidance` — present only when a human reviewed a previous version of this article and asked for changes. Follow it precisely — it outranks every stylistic default, though never factual grounding (don't invent UI to satisfy it) — and re-check that the rest of the article still complies with it before you finish.
   - `article_type` — the article's type (see "Article types" below). The `$article_type` argument wins over this when both are set.
 
@@ -97,7 +102,7 @@ Resolve the topic's source files and author the prose:
 
   `article_type` resolves in this order: the `$article_type` argument → job context → `how-to`. Every type uses the same ordered-block schema:
 
-  - **how-to**: lead prose, optional checklist, numbered task sections, optional tips, summary. Title starts with "How to".
+  - **how-to**: lead prose, optional checklist, numbered task sections, optional tips, summary. Title starts with "How to" (or the content language's equivalent, see STEP 0.5).
   - **troubleshooting**: symptom-focused lead, numbered checks/fixes ordered by likelihood, optional prevention tips, summary.
   - **concept**: lead definition followed by plain sections for the concept's facets; no artificial steps or click path.
   - **faq**: direct-answer lead followed by only the plain supporting sections/lists the answer needs.

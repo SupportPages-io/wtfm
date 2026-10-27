@@ -651,3 +651,19 @@ result = limitFixture(1, 2);
 assert.strictEqual(result.status, 1);
 assert(result.report.global_errors.some(e => e.includes('article has 2 screenshots; the limit is 1')));
 console.log('screenshot limit tests passed');
+
+// A French mockup renders the product's French label: evidence found in the
+// target-locale file passes; a label the model translated itself does not.
+function translatedLabelFixture(label) {
+    return fixture(s => {
+        s.viewSources.steps[0].verbatim_evidence.push({ string: label, found_in: 'config/locales/fr.yml' });
+        s.viewSources.steps[0].partials_expanded.push('config/locales/fr.yml');
+        s.extraFiles = { 'config/locales/fr.yml': 'fr:\n  editor:\n    save: Enregistrer le document\n' };
+        s.html = s.html.replace('Save Editor', `Save Editor ${label}`);
+    });
+}
+result = translatedLabelFixture('Enregistrer le document');
+assert.strictEqual(result.status, 0, JSON.stringify(result.report));
+result = translatedLabelFixture('Sauvegarder le document');
+assert.strictEqual(result.status, 1, 'a self-translated label must not pass as evidence');
+console.log('translated label evidence tests passed');
