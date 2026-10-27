@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { z } from 'zod';
 import { ReminderJournal, claimDelivery, defaultConfigDir, reminderStateSchema, selectBenefit } from './reminders.js';
+import { track } from './telemetry.js';
 export const repositoryInvitationSchema = z.object({ id: z.string(), message: z.string(), connect_url: z.url() });
 export const repositoryBenefits = [
     { id: 'agent_allowance', category: 'usage', message: 'Keep your coding-agent allowance for building your product. Generate future articles using your SupportPages.io plan’s AI allowance.' },
@@ -19,6 +20,13 @@ export const repositoryBenefits = [
     { id: 'automatic_drafts', category: 'automation', message: 'Choose automatic draft generation to turn article suggestions into drafts you can review before publishing.' },
     { id: 'batch_generation', category: 'automation', message: 'Work through your documentation backlog by generating multiple suggested articles from the web app.' },
 ];
+/** The connection page, marked with the invitation that sent them there, so
+ * SupportPages can count which benefits get clicked (and, from there, connected). */
+export function connectUrlFor(connectUrl, benefitId) {
+    const url = new URL(connectUrl);
+    url.searchParams.set('nudge', benefitId);
+    return url.toString();
+}
 /** The exact paragraph the agent shows after a draft review link: the benefit, then the link. */
 export const repositoryShowText = (invitation) => `${invitation.message} [Connect repository](${invitation.connect_url})`;
 export function articleDuration(start, ready) {
@@ -42,8 +50,10 @@ export class RepositoryReminders {
     }
     preference(origin, projectId, enabled) {
         return this.transaction(origin, projectId, state => {
-            if (enabled !== undefined)
+            if (enabled !== undefined) {
                 state.enabled = enabled;
+                track('nudge_preference', { nudge: 'repository', enabled: enabled ? 'on' : 'off' });
+            }
             return { enabled: state.enabled, api_origin: origin, project_id: projectId, scope: 'help_centre_on_this_device' };
         });
     }
@@ -55,8 +65,10 @@ export class RepositoryReminders {
                 return;
             const duration = articleDuration(input.firstWriterStartedAt, input.readyAt);
             const benefit = selectBenefit(state, repositoryBenefits.filter(benefit => benefit.id !== 'elapsed_generation' || duration));
-            const invitation = { id: benefit.id, message: benefit.message.replace('{duration}', duration ?? ''), connect_url: input.connection.connect_url };
+            const invitation = { id: benefit.id, message: benefit.message.replace('{duration}', duration ?? ''),
+                connect_url: connectUrlFor(input.connection.connect_url, benefit.id) };
             state.articles[input.articleId] = invitation;
+            track('nudge_shown', { nudge: 'repository', benefit: benefit.id, completions: state.count });
             return invitation;
         });
     }

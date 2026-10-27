@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 const STATE_FILE = 'article-reminders.json';
 const MAX_PULL_REQUESTS = 50;
 const MAX_SESSIONS = 50;
+const MAX_OFFERS = 50;
 
 const readJson = async file => {
   try {
@@ -48,6 +49,9 @@ async function load(configDir) {
     version: 1,
     pull_requests: Array.isArray(saved.pull_requests) ? saved.pull_requests.filter(key => typeof key === 'string') : [],
     offered_sessions: Array.isArray(saved.offered_sessions) ? saved.offered_sessions.filter(key => typeof key === 'string') : [],
+    // Each offer, for the WTFM server's usage counts (src/article-offers.ts),
+    // which marks them reported and, when an article follows, accepted.
+    offers: Array.isArray(saved.offers) ? saved.offers.filter(offer => offer && typeof offer.at === 'string' && ['pull_request', 'commit'].includes(offer.trigger)) : [],
   };
   return { enabled: preferences.article_reminders !== false, state };
 }
@@ -114,6 +118,7 @@ export async function afterBash({ configDir, input = {} }) {
   if (!enabled || session && state.offered_sessions.includes(session) || pr && state.pull_requests.includes(pr)) return null;
   if (pr) state.pull_requests = [...state.pull_requests, pr].slice(-MAX_PULL_REQUESTS);
   if (session) state.offered_sessions = [...state.offered_sessions, session].slice(-MAX_SESSIONS);
+  state.offers = [...state.offers, { at: new Date().toISOString(), trigger: pr ? 'pull_request' : 'commit' }].slice(-MAX_OFFERS);
   await writeState(configDir, state);
   return pr ? offer(`The user just opened pull request ${pr}.`)
     : offer(`The user just committed "${subject}".`, ' and the feature looks finished rather than part-way through');

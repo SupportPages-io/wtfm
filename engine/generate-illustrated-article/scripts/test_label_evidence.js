@@ -45,5 +45,9 @@ try {
     reset(); write(evidence.generated.model_source,'class OAuthToken < ApplicationRecord\nend'); write(evidence.generated.binding_source,'@new_record = OAuthToken.new');
     write('config/initializers/inflections.rb', "ActiveSupport::Inflector.inflections(:en) do |i|\n i.acronym 'OAuth'\nend");
     assert.equal(check({...evidence,string:'Create OAuth token'}).ok,true);
+    // A translated label is evidence when the target-locale file carries it verbatim.
+    reset(); write('config/locales/fr.yml','fr:\n  projects:\n    new:\n      create: Créer le projet');
+    assert.equal(check({string:'Créer le projet',found_in:'config/locales/fr.yml'}).ok,true);
+    assert.equal(check({string:'Créer un compte',found_in:'config/locales/fr.yml'}).ok,false);
     console.log('Generated and literal label evidence tests passed');
 } finally {fs.rmSync(root,{recursive:true,force:true});}

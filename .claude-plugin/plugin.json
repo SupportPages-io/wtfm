@@ -2,7 +2,7 @@
   "name": "wtfm",
   "displayName": "WTFM",
   "description": "Your coding agent writes the user docs from your codebase, screenshots included.",
-  "version": "0.6.0",
+  "version": "0.7.3",
   "author": {
     "name": "SupportPages.io",
     "url": "https://supportpages.io"

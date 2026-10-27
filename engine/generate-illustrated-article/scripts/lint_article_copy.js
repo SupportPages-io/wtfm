@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { verifyLabelEvidence } = require('./label_evidence.js');
 const { ARTICLE_TYPES, PRESENTATIONS, blocks, articleType } = require('./article_blocks');
+const contentLocale = require('./content_locale');
 
 function typeOf(value) {
     if (Array.isArray(value)) return 'array';
@@ -204,9 +205,15 @@ function checkFidelity(article, corpora, options) {
 }
 
 function sentenceCount(text) { const prose = scanCode(text).prose.replace(/\*\*/g, ''); const found = prose.match(/[.!?]+(?=\s|$)/g); return found ? found.length : (prose.trim() ? 1 : 0); }
-function styleWarnings(article) {
+// The content language RTFM passes in RTFM_CONTEXT_FILE; English without one.
+function contextLocale() {
+    try { return JSON.parse(fs.readFileSync(process.env.RTFM_CONTEXT_FILE, 'utf8')).content_locale || 'en'; } catch { return 'en'; }
+}
+
+function styleWarnings(article, rules = contentLocale.rulesFor('en')) {
     const warnings = [], type = articleType(article);
-    if (type === 'how-to' && !/^how\s+to\b/i.test(article.title || '')) warnings.push('how-to title should start with "How to"');
+    const title = (article.title || '').replace(/\s+/g, ' ');
+    if (type === 'how-to' && rules.known && !rules.howTo.test(title)) warnings.push(`how-to title should start with ${rules.howToHint}`);
     if (type === 'faq' && !(article.title || '').trim().endsWith('?')) warnings.push('faq title should end with "?"');
     for (const block of blocks(article)) {
         const cap = type === 'concept' ? 4 : 3;
@@ -234,7 +241,7 @@ function main() {
         all_passed: true,
         mode: warnMode ? 'warn' : 'fail',
         global_errors: checkSchema(article),
-        global_warnings: styleWarnings(article),
+        global_warnings: styleWarnings(article, contentLocale.rulesFor(contextLocale())),
         blocks: fidelity.reports,
         metrics: fidelity.metrics,
     };
