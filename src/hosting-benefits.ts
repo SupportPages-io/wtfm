@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { z } from 'zod';
-import { ReminderJournal, claimDelivery, defaultConfigDir, reminderStateSchema, selectBenefit, type ReminderState } from './reminders.js';
+import { ReminderJournal, claimDelivery, defaultConfigDir, reminderStateSchema, selectBenefit, takeAccepted, type ReminderState } from './reminders.js';
+import { track } from './telemetry.js';
 
 export const hostingInvitationSchema = z.object({ id: z.string(), message: z.string() });
 export type HostingInvitation = z.infer<typeof hostingInvitationSchema>;
@@ -57,8 +58,20 @@ export class HostingReminders {
   }
   preference(origin: string, enabled?: boolean) {
     return this.transaction(origin, state => {
-      if (enabled !== undefined) state.enabled = enabled;
+      if (enabled !== undefined) {
+        state.enabled = enabled;
+        track('nudge_preference', { nudge: 'hosting', enabled: enabled ? 'on' : 'off' });
+      }
       return { enabled: state.enabled, api_origin: origin, scope: 'local_folders_on_this_device' };
+    });
+  }
+  /** A local folder on this device just moved to a help centre: counts the
+   * latest invitation as taken up when it was recent (takeAccepted). */
+  accepted(origin: string) {
+    return this.transaction(origin, state => {
+      const taken = takeAccepted(state);
+      if (taken) track('nudge_accepted', { nudge: 'hosting', benefit: taken.id, completions: taken.completions });
+      return taken?.id;
     });
   }
   complete(input: { origin: string; articleId: string }) {
@@ -68,6 +81,8 @@ export class HostingReminders {
       const benefit = selectBenefit(state, hostingBenefits);
       const invitation = { id: benefit.id, message: benefit.message };
       state.articles[input.articleId] = invitation;
+      // completions: which local article it followed (the 1st, 2nd, 3rd, 6th...).
+      track('nudge_shown', { nudge: 'hosting', benefit: benefit.id, completions: state.count });
       return invitation;
     });
   }

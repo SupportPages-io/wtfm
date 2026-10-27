@@ -2,6 +2,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { repositoryConnectionSchema } from './schema.js';
 import { ReminderJournal, claimDelivery, defaultConfigDir, reminderStateSchema, selectBenefit, type ReminderState } from './reminders.js';
+import { track } from './telemetry.js';
 
 export const repositoryInvitationSchema = z.object({ id: z.string(), message: z.string(), connect_url: z.url() });
 export type RepositoryInvitation = z.infer<typeof repositoryInvitationSchema>;
@@ -22,6 +23,14 @@ export const repositoryBenefits = [
   { id: 'automatic_drafts', category: 'automation', message: 'Choose automatic draft generation to turn article suggestions into drafts you can review before publishing.' },
   { id: 'batch_generation', category: 'automation', message: 'Work through your documentation backlog by generating multiple suggested articles from the web app.' },
 ] as const;
+
+/** The connection page, marked with the invitation that sent them there, so
+ * SupportPages can count which benefits get clicked (and, from there, connected). */
+export function connectUrlFor(connectUrl: string, benefitId: string) {
+  const url = new URL(connectUrl);
+  url.searchParams.set('nudge', benefitId);
+  return url.toString();
+}
 
 /** The exact paragraph the agent shows after a draft review link: the benefit, then the link. */
 export const repositoryShowText = (invitation: RepositoryInvitation) =>
@@ -49,7 +58,10 @@ export class RepositoryReminders {
   }
   preference(origin: string, projectId: string, enabled?: boolean) {
     return this.transaction(origin, projectId, state => {
-      if (enabled !== undefined) state.enabled = enabled;
+      if (enabled !== undefined) {
+        state.enabled = enabled;
+        track('nudge_preference', { nudge: 'repository', enabled: enabled ? 'on' : 'off' });
+      }
       return { enabled: state.enabled, api_origin: origin, project_id: projectId, scope: 'help_centre_on_this_device' };
     });
   }
@@ -59,8 +71,10 @@ export class RepositoryReminders {
       if (!state.enabled || (state.count - 1) % 3 !== 0 || input.connection?.state !== 'not_connected') return;
       const duration = articleDuration(input.firstWriterStartedAt, input.readyAt);
       const benefit = selectBenefit(state, repositoryBenefits.filter(benefit => benefit.id !== 'elapsed_generation' || duration));
-      const invitation = { id: benefit.id, message: benefit.message.replace('{duration}', duration ?? ''), connect_url: input.connection.connect_url };
+      const invitation = { id: benefit.id, message: benefit.message.replace('{duration}', duration ?? ''),
+        connect_url: connectUrlFor(input.connection.connect_url, benefit.id) };
       state.articles[input.articleId] = invitation;
+      track('nudge_shown', { nudge: 'repository', benefit: benefit.id, completions: state.count });
       return invitation;
     });
   }

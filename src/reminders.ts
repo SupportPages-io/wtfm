@@ -14,12 +14,15 @@ export type ReminderState<Invitation> = {
   version: 1; enabled: boolean; count: number;
   articles: Record<string, Invitation | null>;
   history: string[]; last_category?: string;
+  // The latest invitation, for counting it as taken up (takeAccepted).
+  last_shown_id?: string; last_shown_at?: string; last_shown_count?: number;
 };
 export function reminderStateSchema<Invitation>(invitation: z.ZodType<Invitation>): z.ZodType<ReminderState<Invitation>> {
   return z.object({
     version: z.literal(1), enabled: z.boolean(), count: z.number().int().nonnegative(),
     articles: z.record(z.string(), invitation.nullable()),
     history: z.array(z.string()), last_category: z.string().optional(),
+    last_shown_id: z.string().optional(), last_shown_at: z.string().optional(), last_shown_count: z.number().int().nonnegative().optional(),
   }) as unknown as z.ZodType<ReminderState<Invitation>>;
 }
 const initial = <Invitation>(): ReminderState<Invitation> => ({ version: 1, enabled: true, count: 0, articles: {}, history: [] });
@@ -69,5 +72,24 @@ export function selectBenefit<B extends Benefit>(state: ReminderState<unknown>, 
   const benefit = unused.find(benefit => benefit.category !== state.last_category) ?? unused[0]!;
   state.history.push(benefit.id);
   state.last_category = benefit.category;
+  state.last_shown_id = benefit.id;
+  state.last_shown_at = new Date().toISOString();
+  state.last_shown_count = state.count;
   return benefit;
+}
+
+/** An invitation counts as taken up when the user does what it offered within
+ * this long of seeing it. */
+export const ACCEPT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** The latest invitation (its id, and which completion it followed) if it
+ * was shown within ACCEPT_WINDOW_MS, once: claiming it clears it, so one
+ * invitation is never counted twice. */
+export function takeAccepted(state: ReminderState<unknown>, now = Date.now()) {
+  const shownAt = state.last_shown_at ? Date.parse(state.last_shown_at) : NaN;
+  const { last_shown_id: id, last_shown_count: completions } = state;
+  delete state.last_shown_id;
+  delete state.last_shown_at;
+  delete state.last_shown_count;
+  return id && Number.isFinite(shownAt) && now - shownAt <= ACCEPT_WINDOW_MS ? { id, completions } : undefined;
 }

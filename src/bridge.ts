@@ -11,6 +11,7 @@ import { ApiClient, connectionStateRoot } from './api.js';
 import { preferences, defaultPreferences } from './settings.js';
 import { saveDevicePreferences } from './preferences.js';
 import { defaultConfigDir } from './reminders.js';
+import { reportArticleOffers } from './article-offers.js';
 import { Workspace } from './workspace.js';
 import { bindingSchema, localSchema as localSettingsSchema, manifestSchema, contextSchema, importResponseSchema, remoteArticleSchema, remoteId, idSchema, articleType, type Binding, type LocalSettings } from './schema.js';
 import { createManifest, parse, preview, snapshot, verifyBundle } from './artifacts.js';
@@ -81,6 +82,7 @@ export class Bridge {
   /** The device preference read by the article offer hook. */
   async articleReminders(enabled: boolean) {
     await saveDevicePreferences(this.configDir ?? defaultConfigDir(), { article_reminders: enabled });
+    track('nudge_preference', { nudge: 'article', enabled: enabled ? 'on' : 'off' });
     return { enabled, scope: 'this_device', message: `WTFM article reminders are now ${enabled ? 'on' : 'off'} on this device.` };
   }
   get runs() { return new Runs(this.ws, this.stateRoot, this.sessionId); }
@@ -211,8 +213,14 @@ export class Bridge {
       }
       const binding: Binding = { version: 1, project_id: projectId, api_origin: this.api.origin };
       const fresh = !await this.ws.exists(`${this.stateRoot}/binding.json`);
+      // A folder that saved articles locally, moving to a help centre: what the
+      // hosting invitation asks for.
+      const fromLocal = fresh && await this.ws.exists(`${this.stateRoot}/local.json`);
       await this.ws.writeJson(`${this.stateRoot}/binding.json`, binding);
       if (fresh) track('project_init', { location: 'hosted' });
+      if (fromLocal) {
+        try { await new HostingReminders(this.configDir).accepted(this.api.origin); } catch { /* Counting must never fail a link. */ }
+      }
       return { ...binding, project: context.project };
     });
   }
@@ -798,6 +806,8 @@ export class Bridge {
   get hosted() { return new HostedOperations(this); }
   async createArticle(input: { title?:string; recommendation_id?:string; description?:string; article_type:z.infer<typeof articleType>; publish?:boolean; request_id?:string; prefer_background?:boolean; open_when_ready?:boolean }) {
     if(input.recommendation_id && input.title || !input.recommendation_id && !input.title)fail('invalid_request','Provide either a title or an accepted recommendation_id.');
+    // Every article starts here, locally or hosted: what an article offer asks for.
+    await reportArticleOffers(this.configDir ?? defaultConfigDir(), { articleStarted: true });
     const decision=await resolveAction(this,'create_article');
     if(!decision.allowed) requireExecution(decision,decision.execution);
     if(decision.execution==='local') {

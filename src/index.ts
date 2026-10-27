@@ -9,6 +9,7 @@ import { apiOrigin, defaultOrigin, developmentMode } from './api.js';
 import { createServer } from './server.js';
 import { fail, publicError } from './errors.js';
 import { configureTelemetry, reportError } from './telemetry.js';
+import { reportArticleOffers } from './article-offers.js';
 try {
   const [major = 0, minor = 0] = process.versions.node.split('.').map(Number);
   if (major < 22 || major === 22 && minor < 12) {
@@ -35,6 +36,8 @@ try {
     else {
       await createServer(session).connect(new StdioServerTransport());
       telemetry?.start();
+      // Article offers the hook made since this server last ran.
+      void reportArticleOffers(configDir);
       startBackgroundUpdate(installRoot);
     }
   }
