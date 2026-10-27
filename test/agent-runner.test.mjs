@@ -111,10 +111,10 @@ test('a failed result with unresolved permission denials gives permission-specif
 
 test('timeouts terminate the process group and leave private diagnostics', async t => {
   // The child is a fresh node process; on a slow runner (Intel macOS in CI) its
-  // startup alone can exceed 200ms, so a tight timeout kills it before the
-  // diagnostic is ever written. The timeout only has to be shorter than the
-  // interval keeping the child alive.
-  const h = await harness(t, `console.error('private diagnostic');setInterval(()=>{},1000)`, 'codex', { timeoutMs: 1500 });
+  // startup alone has taken over 1.5s, so a tight timeout kills it before the
+  // diagnostic is ever written. The interval keeps the child alive
+  // indefinitely, so any timeout works: this one leaves startup plenty of room.
+  const h = await harness(t, `console.error('private diagnostic');setInterval(()=>{},1000)`, 'codex', { timeoutMs: 5000 });
   await assert.rejects(runAgent(h.options), { code: 'agent_timeout' });
   assert.match(await readFile(h.options.logPath, 'utf8'), /private diagnostic/);
   assert.equal(process.listenerCount('SIGINT'), 0);
@@ -237,7 +237,7 @@ master,slave=pty.openpty()
 fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',24,100,0,0))
 p=subprocess.Popen([sys.argv[1],sys.argv[2]],stdin=slave,stdout=slave,stderr=slave,env={**os.environ,'TERM':'xterm-256color','NO_COLOR':'1'})
 os.close(slave)
-buf=b''; stage=0; deadline=time.time()+8
+buf=b''; stage=0; deadline=time.time()+20
 try:
     while time.time()<deadline:
         if select.select([master],[],[],0.1)[0]:
@@ -257,6 +257,8 @@ finally:
     if p.poll() is None:p.kill()
     os.close(master)
 `;
-  const result = spawnSync('python3', ['-c', python, process.execPath, script], { encoding: 'utf8', timeout: 12000 });
+  // Generous limits: on a slow runner (Intel macOS in CI) the terminal round
+  // trip has outlasted 12s. The harness exits as soon as the process does.
+  const result = spawnSync('python3', ['-c', python, process.execPath, script], { encoding: 'utf8', timeout: 30000 });
   assert.equal(result.status, 0, result.stderr);
 });
