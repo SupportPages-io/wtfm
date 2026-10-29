@@ -375,7 +375,7 @@ assert(result.report.global_errors.some(e => e.includes('has no zero-based step 
 
 // ─── Deterministic metrics contract (additive; never affects errors/exit) ────
 const METRIC_KEYS = ['shell_nav_labels', 'chrome_files_expanded', 'runtime_ui_strings', 'runtime_regions_rendered',
-    'root_classes_html', 'layout_root_classes', 'verbatim_evidence_source', 'verbatim_evidence_html',
+    'root_classes_html', 'layout_root_classes', 'color_scheme_tokens', 'verbatim_evidence_source', 'verbatim_evidence_html',
     'partials_present', 'body_class_tokens', 'styled_coverage', 'inline_classes_verified',
     'invented_colours', 'invented_copy', 'screen_closure'];
 const ratio = (hits, total) => ({ hits, total, ratio: Math.round((hits / total) * 1000) / 1000 });
@@ -474,6 +474,62 @@ result = fixture(shellMutator('wp-toolbar'));
 m = result.report.steps[0].metrics;
 assert.deepStrictEqual(m.root_classes_html, ratio(1, 1));
 assert(!result.report.steps[0].errors.some(e => e.includes('app_shell.root_classes')));
+checkTotals(result.report);
+
+// Theme tokens (project_map.color_scheme). A shell-rendering step with no chrome problems.
+const themeMutator = ({ htmlClass = null, bodyClass = null, rootHtml = [], scheme = undefined } = {}) => s => {
+    s.projectMap.app_shell = { nav_items: [{ label: 'Dashboard' }, { label: 'Pages' }, { label: 'Settings' }],
+        root_classes: { html: rootHtml, body: [] } };
+    if (scheme !== undefined) s.projectMap.color_scheme = scheme;
+    delete s.projectMap.layouts[0].root_classes;
+    s.projectMap.layouts[0].chrome = ['views/_header.html'];
+    s.extraFiles = { 'views/_header.html': 'Header' };
+    s.viewSources.steps[0].partials_expanded = [s.projectMap.layouts[0].path, 'views/_header.html'];
+    s.html = s.html.replace('<header data-rtfm-region="toolbar"', '<nav>Dashboard Pages Settings</nav><header data-rtfm-region="toolbar"');
+    if (htmlClass) s.html = s.html.replace('<html>', `<html class="${htmlClass}">`);
+    if (bodyClass) s.html = s.html.replace('<body ', `<body class="${bodyClass}" `);
+};
+const darkScheme = { default: 'light', switchable: true, light: { html: [], body: [] },
+    dark: { html: ['bp4-dark'], body: ['bp4-dark'] }, source: 'public/preload-theme.js' };
+// Stale cache: a theme switch recorded as a root class before color_scheme existed is
+// not forced onto the mockup; the report says why.
+result = fixture(themeMutator({ rootHtml: ['bp4-dark'] }));
+assert.strictEqual(result.status, 0, JSON.stringify(result.report));
+m = result.report.steps[0].metrics;
+assert.deepStrictEqual(m.root_classes_html, null);
+assert.deepStrictEqual(m.color_scheme_tokens, null);
+assert(result.report.global_warnings.some(w => w.includes('theme-switch token(s) bp4-dark') && w.includes('predates it')));
+checkTotals(result.report);
+// With the scheme recorded, the other scheme's token on <html> or <body> is an error.
+result = fixture(themeMutator({ htmlClass: 'bp4-dark', scheme: darkScheme }));
+assert.strictEqual(result.status, 1);
+m = result.report.steps[0].metrics;
+assert.deepStrictEqual(m.color_scheme_tokens, ratio(0, 1));
+assert(result.report.steps[0].errors.some(e => e.includes("carries the dark theme's token(s) <html> bp4-dark") && e.includes('default is light')));
+assert(!result.report.steps[0].errors.some(e => e.includes('app_shell.root_classes')));
+checkTotals(result.report);
+result = fixture(themeMutator({ bodyClass: 'bp4-dark', scheme: darkScheme }));
+assert.strictEqual(result.status, 1);
+assert(result.report.steps[0].errors.some(e => e.includes("<body> bp4-dark")));
+checkTotals(result.report);
+// A light mockup under a light default is clean.
+result = fixture(themeMutator({ scheme: darkScheme }));
+assert.strictEqual(result.status, 0, JSON.stringify(result.report));
+assert.deepStrictEqual(result.report.steps[0].metrics.color_scheme_tokens, ratio(1, 1));
+assert.deepStrictEqual(result.report.global_warnings, []);
+checkTotals(result.report);
+// Dark-only app: the default scheme's tokens are required — <html> via the root
+// check (which now carries them), <body> via the scheme check on shell steps.
+const darkDefault = { ...darkScheme, default: 'dark' };
+result = fixture(themeMutator({ htmlClass: 'bp4-dark', scheme: darkDefault }));
+assert.strictEqual(result.status, 1);
+m = result.report.steps[0].metrics;
+assert.deepStrictEqual(m.root_classes_html, ratio(1, 1));
+assert.deepStrictEqual(m.color_scheme_tokens, ratio(1, 2));
+assert(result.report.steps[0].errors.some(e => e.includes('<body> is missing the dark theme token(s)') && e.includes('bp4-dark')));
+checkTotals(result.report);
+result = fixture(themeMutator({ scheme: darkDefault }));
+assert(result.report.steps[0].errors.some(e => e.includes('missing class token(s) recorded in app_shell.root_classes: bp4-dark') && e.includes('color_scheme.dark')));
 checkTotals(result.report);
 
 // Missing mockup: the step's metrics are all null (nothing measurable).

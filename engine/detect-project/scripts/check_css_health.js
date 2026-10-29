@@ -12,7 +12,7 @@
  * WordPress-specific: any project that loads stylesheets per page/surface, or
  * whose theme variables are emitted by a build step, can lose them the same way.
  *
- * Three checks, all framework-agnostic:
+ * Four checks, all framework-agnostic:
  *
  *  1. Undefined custom properties — every `var(--x)` consumed WITHOUT a fallback
  *     must be defined somewhere in the CSS. An undefined var invalidates its whole
@@ -41,6 +41,22 @@
  *     the corresponding root_classes list is empty/absent; WARN when it is
  *     non-empty but missing a qualifying class (a deliberate judgment call —
  *     verify the class doesn't apply to the default authenticated page).
+ *
+ *  4. Theme-switch tokens — a class under which the bundle scopes a whole second
+ *     colour scheme (`.bp4-dark .bp4-button {…}` × hundreds, Tailwind's
+ *     `.dark .dark\:bg-… {…}`, `html.theme-dark …`) is a theme SWITCH, not root
+ *     state: the app adds and removes it from a toggle, a stored preference, or
+ *     an OS prefers-color-scheme check. Such a token belongs in
+ *     project_map.color_scheme (light/dark token sets + the default the mockups
+ *     render), never in app_shell.root_classes. Observed (Bigcapital, 20
+ *     articles): detect recorded `bp4-dark` as a root class because the entry
+ *     HTML hardcodes it; the fidelity lint then forced every mockup to carry it
+ *     and each article spent ~5 minutes and ~40 turns overriding 900+ dark rules
+ *     to get the light screenshots the article contract asks for. ERROR when a
+ *     root_classes list holds a CSS-proven theme token; ERROR when the bundle
+ *     proves a theme token that color_scheme does not record. Utility classes
+ *     that merely contain "dark"/"light" (.bg-dark, .navbar-dark, .text-light)
+ *     scope at most a handful of descendant rules and never qualify.
  *
  * Usage:
  *   node check_css_health.js <branding.css> [view files…] \
@@ -127,6 +143,85 @@ function analyzeRootOffsetClasses(css, projectMap) {
             `fixed bar OVER the content`;
         if (recorded.size) out.warnings.push(msg);
         else out.errors.push(msg);
+    }
+    return out;
+}
+
+// ─── Check 4: theme-switch tokens ────────────────────────────────────────────
+// A theme switch is a class that (a) is named like one and (b) the bundle uses
+// as an ANCESTOR of many other selectors — `.bp4-dark .bp4-menu-item`,
+// `html.dark .card`, `.dark\:bg-x:is(.dark *)`. Utilities such as .bg-dark or
+// .navbar-dark are the SUBJECT of their rules (or scope a dozen descendants at
+// most), so the ancestor-rule count separates the two without a framework list.
+const THEME_TOKEN_NAME = /(?:^|[-_])(?:dark|light|night)(?:[-_]|$)|^theme[-_]|[-_]theme$/i;
+const MIN_THEME_SCOPED_RULES = 20;
+
+// Returns Map<token, ancestorRuleCount> for every theme-named class token the
+// CSS scopes other selectors under at least MIN_THEME_SCOPED_RULES times.
+function findThemeSwitchTokens(css) {
+    const counts = new Map();
+    for (const m of css.matchAll(/([^{};]+)\{[^{}]*\}/g)) {
+        const selector = m[1];
+        // Token followed by a descendant/child combinator or a ` *)` inside :is()/:where():
+        // i.e. something else is styled UNDER it.
+        for (const sm of selector.matchAll(/\.(-?[A-Za-z_][A-Za-z0-9_-]*)(?=\s*[>~+]\s*\S|\s+[^\s,{)])/g)) {
+            const token = sm[1];
+            if (!THEME_TOKEN_NAME.test(token)) continue;
+            counts.set(token, (counts.get(token) || 0) + 1);
+        }
+    }
+    for (const [token, n] of [...counts]) if (n < MIN_THEME_SCOPED_RULES) counts.delete(token);
+    return counts;
+}
+
+function tokenList(v) {
+    return (Array.isArray(v) ? v : String(v || '').split(/\s+/)).filter(Boolean);
+}
+
+function analyzeColorScheme(css, projectMap) {
+    const out = { errors: [], warnings: [], theme_tokens: {}, recorded: null };
+    const found = findThemeSwitchTokens(css);
+    for (const [token, n] of [...found].sort((a, b) => b[1] - a[1])) out.theme_tokens[token] = n;
+    const scheme = projectMap && projectMap.color_scheme;
+    const recordedTokens = new Set();
+    if (scheme && typeof scheme === 'object') {
+        out.recorded = scheme.default || null;
+        if (!['light', 'dark'].includes(scheme.default)) {
+            out.errors.push(`project_map.color_scheme.default must be "light" or "dark" (found ${JSON.stringify(scheme.default)})`);
+        }
+        for (const mode of ['light', 'dark']) {
+            const set = scheme[mode];
+            if (!set || typeof set !== 'object') continue;
+            for (const root of ['html', 'body']) for (const t of tokenList(set[root])) recordedTokens.add(t);
+        }
+    }
+    // (a) a theme token recorded as root state — the Bigcapital failure.
+    const shell = projectMap && projectMap.app_shell;
+    const rc = (shell && typeof shell === 'object' && shell.root_classes) || {};
+    for (const root of ['html', 'body']) {
+        const leaked = tokenList(rc[root]).filter(t => found.has(t));
+        if (leaked.length) {
+            out.errors.push(`app_shell.root_classes.${root} records ${leaked.join(', ')}, but branding.css scopes ` +
+                `${leaked.map(t => `${found.get(t)} rule(s) under .${t}`).join(' and ')} — that is a theme switch, ` +
+                `not root state. Move it to project_map.color_scheme (under "dark" or "light") and keep ` +
+                `root_classes to the tokens every theme carries; mockups then render color_scheme.default ` +
+                `(light whenever the app ships a light theme) instead of fighting the other theme's rules`);
+        }
+    }
+    // (b) a CSS-proven theme token the map does not account for.
+    if (found.size) {
+        const unrecorded = [...found.keys()].filter(t => !recordedTokens.has(t));
+        if (!scheme) {
+            out.errors.push(`branding.css ships a class-scoped theme (${[...found].map(([t, n]) => `.${t}: ${n} rule(s)`).join(', ')}) ` +
+                `but project_map.json has no color_scheme. Record ` +
+                `{"default": "light", "switchable": true, "light": {"html": [], "body": []}, ` +
+                `"dark": {"html": [${[...found.keys()].map(t => JSON.stringify(t)).join(', ')}], "body": []}, "source": "<file that toggles it>"} ` +
+                `with the tokens on the root(s) the app really puts them on; default is "light" unless the app has no light theme`);
+        } else if (unrecorded.length) {
+            out.warnings.push(`branding.css scopes a theme under .${unrecorded.join(' / .')} ` +
+                `(${unrecorded.map(t => `${found.get(t)} rule(s)`).join(', ')}) that project_map.color_scheme ` +
+                `lists in neither "light" nor "dark" — add it to the scheme it belongs to, or confirm it is not a theme switch`);
+        }
     }
     return out;
 }
@@ -373,13 +468,28 @@ function main() {
     for (const e of rootOffsets.errors) console.log(`[FAIL] ERROR: ${e}`);
     for (const w of rootOffsets.warnings) console.log(`[WARN] WARN:  ${w}`);
 
-    const failed = vars.errors.length > 0 || coverageErrors > 0 || rootOffsets.errors.length > 0;
+    // Check 4 — theme-switch tokens (runs with or without an app_shell: a theme
+    // class applies to standalone pages too)
+    console.log('== CSS health: theme-switch tokens ==');
+    const colorScheme = analyzeColorScheme(css, pm);
+    if (!colorScheme.errors.length && !colorScheme.warnings.length) {
+        const tokens = Object.keys(colorScheme.theme_tokens);
+        console.log(tokens.length
+            ? `[ OK ] theme token(s) .${tokens.join(' / .')} recorded in project_map.color_scheme (default: ${colorScheme.recorded})`
+            : '[ OK ] no class-scoped theme switch in branding.css');
+    }
+    for (const e of colorScheme.errors) console.log(`[FAIL] ERROR: ${e}`);
+    for (const w of colorScheme.warnings) console.log(`[WARN] WARN:  ${w}`);
+
+    const failed = vars.errors.length > 0 || coverageErrors > 0 || rootOffsets.errors.length > 0
+        || colorScheme.errors.length > 0;
     if (jsonOut) {
         fs.writeFileSync(jsonOut, JSON.stringify({
             css: cssPath,
             undefined_vars: { errors: vars.errors, warnings: vars.warnings },
             views: results,
             root_offset_classes: rootOffsets,
+            color_scheme: colorScheme,
             failed,
             soft,
         }, null, 2));
@@ -398,6 +508,10 @@ function main() {
         console.log('  the map does not record. Chase the root-class emission (the layout, or the helper it');
         console.log('  calls) and record the resolved DEFAULT-user tokens in app_shell.root_classes, then');
         console.log('  re-run this check. This is a project_map.json repair, not a CSS repair.');
+        console.log('- theme-switch tokens: also a project_map.json repair. A class the CSS scopes a whole');
+        console.log('  colour scheme under is a theme switch: record it in project_map.color_scheme (light/dark');
+        console.log('  token sets, default "light" unless the app has no light theme) and remove it from');
+        console.log('  app_shell.root_classes. Mockups render the default scheme and never the other one.');
         console.log('- re-run sanitize_css.js after appending CSS, then re-run this check.');
         if (soft) {
             console.log('(soft mode: fallback_synthesis is the known-degraded floor — reporting only, not failing)');
@@ -409,4 +523,6 @@ function main() {
     process.exit(0);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { findThemeSwitchTokens, analyzeColorScheme, analyzeRootOffsetClasses, findRootOffsetClasses };
