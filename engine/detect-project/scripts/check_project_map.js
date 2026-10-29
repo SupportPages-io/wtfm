@@ -73,6 +73,33 @@ function checkRuntimeChrome(chrome, where, problems) {
     if (screenshots > 3) fail(`at most 3 states may set screenshot_required (found ${screenshots})`);
 }
 
+// color_scheme is optional for every app type: the theme-switch tokens the
+// app toggles on <html>/<body>, kept OUT of root_classes, plus the scheme the
+// mockups render (light unless the app has no light theme).
+function checkColorScheme(map, problems) {
+    if (!Object.hasOwn(map, 'color_scheme') || map.color_scheme === null) return;
+    const scheme = map.color_scheme;
+    if (!isObject(scheme)) { problems.push('color_scheme must be an object'); return; }
+    if (!['light', 'dark'].includes(scheme.default)) problems.push('color_scheme.default must be "light" or "dark"');
+    for (const mode of ['light', 'dark']) {
+        if (!isObject(scheme[mode])) { problems.push(`color_scheme.${mode} must be an object`); continue; }
+        for (const root of ['html', 'body']) {
+            if (!Array.isArray(scheme[mode][root]) || !scheme[mode][root].every(nonEmptyString)) {
+                problems.push(`color_scheme.${mode}.${root} must be an array of class tokens`);
+            }
+        }
+    }
+    const shell = map.app_shell;
+    if (isObject(shell) && isObject(shell.root_classes)) {
+        const themed = new Set(['light', 'dark'].flatMap(mode => ['html', 'body']
+            .flatMap(root => (isObject(scheme[mode]) && Array.isArray(scheme[mode][root])) ? scheme[mode][root] : [])));
+        for (const root of ['html', 'body']) {
+            const leaked = (Array.isArray(shell.root_classes[root]) ? shell.root_classes[root] : []).filter(t => themed.has(t));
+            if (leaked.length) problems.push(`app_shell.root_classes.${root} repeats color_scheme token(s) ${leaked.join(', ')} — theme tokens live in color_scheme only`);
+        }
+    }
+}
+
 function checkIndexedApp(map, appType, indexKey, metadataKey, problems) {
     if (!nonEmptyObject(map[indexKey])) problems.push(`${indexKey} must be a non-empty object`);
     if (!isObject(map[metadataKey])) problems.push(`${metadataKey} must be an object`);
@@ -121,6 +148,7 @@ function check(mode, map, codebase) {
     if (map.app_type !== mode) problems.push(`app_type must be "${mode}" (found ${JSON.stringify(map.app_type)})`);
     if (!isString(map.app_type_source)) problems.push('app_type_source must be a string');
     CHECKS[mode](map, problems, codebase);
+    checkColorScheme(map, problems);
     return problems;
 }
 
