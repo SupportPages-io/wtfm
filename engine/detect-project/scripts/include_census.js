@@ -246,6 +246,15 @@ function resolveModule(src, fromDir, root) {
             if (hit) return hit;
         }
     }
+    // 4. bundler aliases declared where this resolver doesn't look (a webpack/vite
+    //    `alias` built in code, e.g. "dashboard/components/X.vue" → app/javascript/
+    //    dashboard/…): a multi-segment specifier whose first segment is a directory
+    //    under a conventional source root, accepted only when the file exists.
+    if (src.includes('/') && !src.startsWith('@')) {
+        const hit = tryBases(['app/javascript', 'app/frontend', 'src', 'frontend/src', 'frontend', 'resources/js', 'assets/js', 'client/src']
+            .map(pre => path.join(pkgDir, pre, src)));
+        if (hit) return hit;
+    }
     return null;
 }
 // A barrel (`index.ts` of re-exports) is where an alias/workspace import lands;

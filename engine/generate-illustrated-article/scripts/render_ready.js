@@ -16,6 +16,8 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { puppeteer, launchOptions, renderOnBrowser, probeStringsFor } = require('./render_mockup.js');
+const { actionMarkerFragments, fragmentShowsActionTarget, normalizeActionText, evidenceStrings } = require('./lint_mockup_fidelity.js');
+const { verifyLabelEvidence } = require('./label_evidence.js');
 
 function existingPath(candidates) {
     return candidates.find(candidate => fs.existsSync(candidate));
@@ -34,6 +36,53 @@ function evidenceForStep(articleDir, location) {
     } catch {
         return [];
     }
+}
+
+// The final lint's action-coverage checks for this one screenshot, run while its
+// mockup is still being authored: each target shown here sits inside an element
+// marked for its article block and is quoted in this block's verbatim_evidence.
+function actionTargetProblems(articleDir, location, html, projectRoot) {
+    let vs;
+    try { vs = JSON.parse(fs.readFileSync(path.join(articleDir, 'view_sources.json'), 'utf8')); } catch { return []; }
+    const entries = vs.blocks || vs.steps || [];
+    const step = entries.find(item => item.block_id === location || Number(item.index) === Number(location));
+    // A block's marker may be its id or its section's position in article.json,
+    // as the lint numbers them.
+    const position = new Map();
+    try {
+        const article = JSON.parse(fs.readFileSync(path.join(articleDir, 'article.json'), 'utf8'));
+        (article.blocks || []).filter(block => block && block.type === 'section').forEach((block, i) => position.set(block.id, i));
+    } catch { /* no article yet */ }
+    const problems = [];
+    for (const evidence of (step && Array.isArray(step.verbatim_evidence) ? step.verbatim_evidence : [])) {
+        const verified = verifyLabelEvidence(evidence, step.primary_view, projectRoot);
+        if (!verified.ok) problems.push(verified.error);
+    }
+    for (const entry of Array.isArray(vs.action_coverage) ? vs.action_coverage : []) {
+        if (!entry || (entry.screenshot_block_id ?? entry.screenshot_step_index) != location) continue;
+        const target = typeof entry.target === 'string' ? entry.target.trim() : '';
+        const marker = entry.article_block_id ?? entry.article_step_index;
+        if (!target || marker == null) continue;
+        const fragments = [...actionMarkerFragments(html, marker),
+            ...(position.has(marker) ? actionMarkerFragments(html, position.get(marker)) : [])];
+        if (!fragments.length) problems.push(`no element carries data-rtfm-action-target="${marker}" — mark the control for "${target}"`);
+        else if (!fragments.some(fragment => fragmentShowsActionTarget(fragment, target))) problems.push(
+            `"${target}" is not inside (or the label of) an element marked data-rtfm-action-target="${marker}" — ` +
+            'mark that control too (several controls may share one marker)');
+        if (step && !evidenceStrings(step).some(value => normalizeActionText(value) === normalizeActionText(target))) problems.push(
+            `"${target}" is missing from this block's verbatim_evidence — add it, as the literal a cited source file (or its locale file) holds`);
+    }
+    return problems;
+}
+
+// The copy lint's errors for this block (bold labels and code its own sources
+// lack), from the same check the post-process runs.
+function copyLintProblems(articleDir, location, projectRoot) {
+    if (/^\d+$/.test(String(location))) return [];
+    const result = spawnSync(process.execPath, [path.join(__dirname, 'lint_article_copy.js'), articleDir, projectRoot],
+        { cwd: projectRoot, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024, env: { ...process.env, RTFM_LINT_MODE: '' } });
+    const prefix = `[FAIL] block ${location}: `;
+    return String(result.stdout || '').split('\n').filter(line => line.startsWith(prefix)).map(line => line.slice(prefix.length));
 }
 
 function run(command, args, options = {}) {
@@ -100,6 +149,10 @@ async function main() {
     }
     injectArgs.push('--refresh-jit');
 
+    const targetProblems = [
+        ...actionTargetProblems(articleDir, legacy ? index : rawIndex, originals.get(htmlPath) || '', projectRoot).map(p => `(view_sources) ${p}`),
+        ...copyLintProblems(articleDir, legacy ? index : rawIndex, projectRoot).map(p => `(article copy) ${p}`),
+    ];
     const tempPng = path.join(articleDir, `.${stepName}.rendering-${process.pid}.png`);
     const tempDiagnostics = tempPng.replace(/\.png$/, '_diagnostics.json');
     let browser;
@@ -150,6 +203,8 @@ async function main() {
         }, null, 2));
         console.log(`Published ${path.basename(finalPng)} progressively (quality: ${quality.rating}, ${quality.score})`);
     } finally {
+        // stdout, after the render result: the final lint fails each of these
+        for (const problem of targetProblems) console.log(`FIX NOW ${stepName} ${problem} — the final lint fails this`);
         if (browser) await browser.close();
         for (const [file, contents] of originals) fs.writeFileSync(file, contents);
         for (const temporary of [tempPng, tempDiagnostics]) {
