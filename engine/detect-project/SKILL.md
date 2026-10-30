@@ -113,6 +113,20 @@ echo "APP_TYPE=$APP_TYPE"
 echo "APP_TYPE_SOURCE=$APP_TYPE_SOURCE"
 echo "PLATFORM=$PLATFORM"
 echo "RTFM_ANALYZE=${RTFM_ANALYZE:-}"
+
+# STEP 1 (static baseline detection) for the branches that run STEPS 1–4 —
+# web, desktop and game — run here so its result is already on screen for STEP 2.
+case "$APP_TYPE" in
+  web|desktop|game)
+    node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/detect_static.js "$BRAND_DIR" "$CODEBASE" \
+      && mv "$BRAND_DIR/branding.json" "$BRAND_DIR/branding-detect.json" \
+      && { echo "--- STEP 1 done: $BRAND_DIR/branding-detect.json ---"; cat "$BRAND_DIR/branding-detect.json"; } \
+      && echo "
+STEP 2 note: STEP 4 copies every key of branding-detect.json into branding.json. The article and
+walkthrough skills read only: framework, default_colors, google_fonts, external_stylesheets,
+framework_cdn, root_css, dark_css, css_var_overrides, tailwind_extend_raw (+ compiled_css_path,
+written by STEP 4). No need to open write_branding.js or the article scripts to find this out." ;;
+esac
 ```
 
 **Routing.** If `APP_TYPE` printed `web`, run STEPS 1–5 below exactly as written and ignore the Terminal, Mobile, Desktop, Win32, macOS, and Game branches entirely. If it printed `terminal`, **skip STEPS 1–5** and run the Terminal branch (STEPS T1–T4) instead, then rejoin at STEP 6. If it printed `mobile`, **skip STEPS 1–5 and T1–T4** and run the Mobile branch (STEPS M1–M5) instead, then rejoin at STEP 6. If it printed `desktop`, run the Desktop branch (STEP D1, then STEPS 1–4 as written, then D2–D3 — **not** 4.5–5), then rejoin at STEP 6. If it printed `win32`, **skip STEPS 1–5** and run the Win32 branch (STEPS W1–W4) instead, then rejoin at STEP 6. If it printed `macos`, **skip STEPS 1–5** and run the macOS branch (STEPS C1–C4) instead, then rejoin at STEP 6. If it printed `game`, run the Game branch (STEP G1, then STEPS 1–4 as written, then G2–G3 — **not** 4.5–5), then rejoin at STEP 6.
@@ -134,7 +148,7 @@ Record the adjudication: pass `llm` as the `app_type_source` argument to the str
 
 ## STEP 1 — Static baseline detection
 
-Run the static detector — finds the framework, source CSS files, design tokens, brand colours, fonts. Pure regex; ~100ms.
+The static detector finds the framework, source CSS files, design tokens, brand colours, fonts. Pure regex; ~100ms. **STEP 0 already ran it for web, desktop and game and printed `branding-detect.json`** — go straight to STEP 2. Run this block only if STEP 0 printed no `STEP 1 done` line:
 
 ```bash
 node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/detect_static.js "$BRAND_DIR" "$CODEBASE"
@@ -145,7 +159,9 @@ mv "$BRAND_DIR/branding.json" "$BRAND_DIR/branding-detect.json"
 
 ## STEP 2 — In-session refinement (YOU do this, not a subprocess)
 
-Read `$BRAND_DIR/branding-detect.json`. Inspect it for the following conditions and do the indicated work. After each resolution, update the JSON file in place. **Do not run `claude -p` or any subprocess for this** — you, Claude, in this session, have all the tools needed (Read, Glob, Grep).
+Inspect `$BRAND_DIR/branding-detect.json` (STEP 0 printed it) for the following conditions and do the indicated work. After each resolution, update the JSON file in place. **Do not run `claude -p` or any subprocess for this** — you, Claude, in this session, have all the tools needed (Read, Glob, Grep).
+
+**Read in batches.** Each check below names the files it needs; open them together — several Read calls in one turn, or one Bash call that prints several files — rather than one file per turn. STEP 4's `write_branding.js` copies every key of `branding-detect.json` into `branding.json`, so there is no need to open its source; keep the existing keys and add yours.
 
 **a. SCSS variable chains.** If any value in `scss_vars` looks like a reference (`$identifier` instead of `#hex`), follow the chain:
 - Open the SCSS file(s) listed in `sources`
@@ -193,7 +209,7 @@ bash ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/compile_css.s
 METHOD=$(cat "$BRAND_DIR/branding.css.method.txt" 2>/dev/null || echo none)
 echo "compile method: $METHOD"
 ```
-The script tries a committed build artefact (Rails/Phoenix/Vite/Next output dirs), then a source compile (`npx @tailwindcss/cli` / `npx tailwindcss` / `npx sass` / `npx postcss`), then `fallback_synthesis` (framework CDN + `assets/tailwind-fallback.css` + `theme_overrides.js`). It sanitises the output, prepends font `@import`s, and records the method in `branding.css.method.txt`.
+The script tries a committed build artefact (Rails/Phoenix/Vite/Next output dirs), then a source compile (`npx @tailwindcss/cli` / `npx tailwindcss` / `npx sass` / `npx postcss`), then `fallback_synthesis` (framework CDN + `assets/tailwind-fallback.css` + `theme_overrides.js`). It sanitises the output, prepends font `@import`s, and records the method in `branding.css.method.txt`. Do not spot-check the compiled bundle for classes by hand: STEP 4.7's health gate measures class coverage against the real views deterministically.
 
 ### 3.2 — LLM build discovery (only when `$METHOD` is `fallback_synthesis`)
 The deterministic script is Rails/simple-Tailwind shaped; it misses bundler-built, monorepo, Tailwind-v4-standalone, and non-npm (e.g. Phoenix/Mix) setups. When it fell back, **investigate this project's actual CSS build and run it yourself** — every shippable app has one:
@@ -246,6 +262,8 @@ Read `$BRAND_DIR/project_map.json`, then inspect the route/layout files it point
 - Next/Phoenix/Django/Laravel: read the framework's router files/directories from `dir_map.routes`.
 - Read `app/views/layouts/*` (or framework equivalent) enough to identify the purpose of each layout and shared chrome partials.
 
+Read in batches here too: open the route file(s), every layout, and the chrome partials/nav sources they render together — several Read calls per turn, or one Bash call printing several files — rather than one file per turn.
+
 Update `project_map.json` in place with the fields below. Edit it directly, or write your additions to a patch file and run `node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/merge_json.js "$BRAND_DIR/project_map.json" <patch.json>` (objects merge key by key; arrays and scalars replace, and keys you omit are kept):
 
 1. `dir_map` with the useful downstream directories, not just the minimum detector output. Include keys when they exist: `routes`, `controllers`, `views`, `layouts`, `components`, `modals`, `partials`, `stimulus_controllers`, `reflexes`, `models`.
@@ -290,7 +308,19 @@ Update `project_map.json` in place with the fields below. Edit it directly, or w
   "root_classes": { "html": [], "body": [] }
 }
 ```
-Use the real labels/hrefs/icons in their real order, and record each shell region at **item level** — a top bar is not "a top bar", it is its ordered items (logo/menu, badges, counters, bubbles, the account menu), because the mockup contracts render every item the map records and can't render one it doesn't. Omit `top_bar` only when the shell genuinely has none. **`root_classes`** = the class tokens the document's `<html>` and `<body>` elements carry on a standard authenticated app page for the DEFAULT user, with server-side conditionals **resolved** — root classes are often computed rather than literal (a layout may emit `<html class="<?php echo $computed; ?>">` via a helper in another file), so chase the emission to its source and record the resolved tokens. They are load-bearing: fixed-chrome offset rules (`html.<class> { padding-top: … }` keeping a fixed top toolbar off the content) and theme/dark-mode scoping hang on them, and the fidelity lint enforces the `html` tokens on every shell-rendering mockup. Use empty arrays when the app stamps nothing on the root. This is the single biggest thing that makes dashboard/list/settings mockups look right — capturing it once here saves every article from re-deriving it. Set `app_shell` to `null` only if the project genuinely has no persistent shell (every page standalone). This is worth a few extra reads at detect time; do them.
+Use the real labels/hrefs/icons in their real order, and record each shell region at **item level** — a top bar is not "a top bar", it is its ordered items (logo/menu, badges, counters, bubbles, the account menu), because the mockup contracts render every item the map records and can't render one it doesn't. Omit `top_bar` only when the shell genuinely has none. **`root_classes`** = the class tokens the document's `<html>` and `<body>` elements carry on a standard authenticated app page for the DEFAULT user, with server-side conditionals **resolved** and **theme-switch tokens left out** (they go in `color_scheme`, below) — root classes are often computed rather than literal (a layout may emit `<html class="<?php echo $computed; ?>">` via a helper in another file), so chase the emission to its source and record the resolved tokens. They are load-bearing: fixed-chrome offset rules (`html.<class> { padding-top: … }` keeping a fixed top toolbar off the content) and theme/dark-mode scoping hang on them, and the fidelity lint enforces the `html` tokens on every shell-rendering mockup. Use empty arrays when the app stamps nothing on the root. This is the single biggest thing that makes dashboard/list/settings mockups look right — capturing it once here saves every article from re-deriving it. Set `app_shell` to `null` only if the project genuinely has no persistent shell (every page standalone). This is worth a few extra reads at detect time; do them.
+
+   **`color_scheme`** (a top-level key of `project_map.json`, beside `app_shell`) — the app's theme switch, kept apart from `root_classes`. A **theme-switch token** is any root class the app adds or removes to change colour scheme: a `dark` / `bp4-dark` / `theme-dark` class set by a toggle, a stored preference, or an OS `prefers-color-scheme` check, often from a tiny preload script in the HTML entry file. It is a switch, not root state, even when the entry HTML hardcodes it or the repository's screenshots show it on; it never belongs in `root_classes`, and the STEP 4.7 gate fails a `root_classes` that holds one (the stylesheet proves it: hundreds of rules scoped under the class). Record:
+```json
+"color_scheme": {
+  "default": "light",
+  "switchable": true,
+  "light": { "html": [], "body": [] },
+  "dark":  { "html": ["dark"], "body": [] },
+  "source": "<repo-relative file that toggles the class>"
+}
+```
+   `light`/`dark` hold the tokens each scheme puts on `<html>` and `<body>` (empty arrays when a scheme is the unclassed state). **`default` is `light` whenever the app ships a light theme** — help-centre screenshots render the light theme, and the mockup contracts add the default scheme's tokens to the root and never the other scheme's, so the generating model stops re-deciding this per article and never overrides the other theme's rules. `default` is `dark` only when the app has no light theme (nothing toggles, every rule is dark). Omit `color_scheme` when the stylesheet has no class-scoped theme: a `prefers-color-scheme` media query alone needs nothing (the renderer prefers light), and an attribute switch (`[data-theme="dark"]`) is simply never set on a mockup.
 5. `route_index` with the main user-facing routes. Prefer a keyed object:
 
 ```json
@@ -329,7 +359,7 @@ Set `css_build` to `null` only for non-Tailwind projects or when even the fallba
 
 7. `runtime_surface_coverage` — normally `{ "ignored": [] }`. The deterministic coverage gate below scans route/layout source files for high-confidence client-app initializers. Every detected mount must own its own `runtime_chrome` layout. Only a false-positive/progressive-enhancement initializer may be ignored, as `{ "source_file": "<repo-relative path>", "reason": "<specific evidence that this is not a distinct rendered app>" }`; never ignore a full editor, builder, SPA, or stateful widget.
 
-Validation:
+Validation — one block that also runs the render chains and the STEP 4.7 CSS health gate once the map validates (both explained below):
 
 ```bash
 # Apply a reusable framework/runtime profile when the checkout contains a
@@ -339,11 +369,24 @@ Validation:
 node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/apply_runtime_profiles.js \
   "$BRAND_DIR/project_map.json" "$CODEBASE" --json "$BRAND_DIR/runtime_profiles.json"
 
-node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/check_project_map.js web "$BRAND_DIR/project_map.json" "$CODEBASE"
-node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/check_runtime_coverage.js \
-  "$BRAND_DIR/project_map.json" "$CODEBASE" --json "$BRAND_DIR/runtime_coverage.json"
-node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/check_runtime_recipe_quality.js \
-  "$BRAND_DIR/project_map.json" "$CODEBASE" --json "$BRAND_DIR/runtime_recipe_quality.json"
+if node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/check_project_map.js web "$BRAND_DIR/project_map.json" "$CODEBASE" \
+  && node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/check_runtime_coverage.js \
+       "$BRAND_DIR/project_map.json" "$CODEBASE" --json "$BRAND_DIR/runtime_coverage.json" \
+  && node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/check_runtime_recipe_quality.js \
+       "$BRAND_DIR/project_map.json" "$CODEBASE" --json "$BRAND_DIR/runtime_recipe_quality.json"; then
+  echo "--- map valid: render chains ---"
+  node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/resolve_route_chains.js \
+    "$BRAND_DIR/project_map.json" "$CODEBASE" --json "$BRAND_DIR/route_chains.json"
+  echo "--- STEP 4.7 CSS health gate ---"
+  METHOD=$(cat "$BRAND_DIR/branding.css.method.txt" 2>/dev/null || echo none)
+  SOFT=""; [ "$METHOD" = "fallback_synthesis" ] && SOFT="--soft"
+  node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/check_css_health.js \
+    "$BRAND_DIR/branding.css" \
+    --project-map "$BRAND_DIR/project_map.json" --project-dir "$CODEBASE" \
+    --json "$BRAND_DIR/css_health.json" $SOFT
+else
+  echo "MAP INVALID — fix project_map.json and re-run this block"
+fi
 ```
 
 (`app_type`/`app_type_source` are stamped by the STEP 4.5 skeleton call — preserve them when you merge your enrichment in.)
@@ -352,7 +395,7 @@ If validation fails, fix `project_map.json` and re-run the complete validation b
 
 ### Render chains (deterministic — run after validation passes)
 
-The screen behind a route is rarely one file: on component-tree apps it is 30–50 components deep across packages, and an article run that has to rediscover that tree by grep spends its first ten minutes doing so. The chain is static per commit, so it belongs in the cache. Resolve it once, deterministically:
+The screen behind a route is rarely one file: on component-tree apps it is 30–50 components deep across packages, and an article run that has to rediscover that tree by grep spends its first ten minutes doing so. The chain is static per commit, so it belongs in the cache. Resolve it once, deterministically (the validation block above already ran this line once the map validated; re-run it alone after a map repair):
 
 ```bash
 node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/resolve_route_chains.js \
@@ -363,7 +406,7 @@ For every route with a readable `primary_view` and every layout with a readable 
 
 ## STEP 4.7 — CSS health gate (deterministic — do not skip)
 
-`branding.css` being large, valid, and assembled from the project's REAL stylesheets does not prove it styles the app: a per-page/per-surface stylesheet can be missing (unstyled surface), and rules can consume `var(--x)` custom properties that nothing defines (each such declaration is invalid at computed-value time — a themed button background silently vanishes while its `color: #fff` survives, rendering white-on-white). Verify both before the cache is trusted:
+`branding.css` being large, valid, and assembled from the project's REAL stylesheets does not prove it styles the app: a per-page/per-surface stylesheet can be missing (unstyled surface), and rules can consume `var(--x)` custom properties that nothing defines (each such declaration is invalid at computed-value time — a themed button background silently vanishes while its `color: #fff` survives, rendering white-on-white). Verify both before the cache is trusted (on the web path the STEP 4.6 validation block already ran this gate; read its output, and use this block to re-run it after a repair):
 
 ```bash
 METHOD=$(cat "$BRAND_DIR/branding.css.method.txt" 2>/dev/null || echo none)
@@ -374,12 +417,13 @@ node ${RTFM_SKILLS_DIR:-$HOME/.rtfm-skills}/detect-project/scripts/check_css_hea
   --json "$BRAND_DIR/css_health.json" $SOFT
 ```
 
-The script samples class/id tokens from the structure map's real views (`route_index` primary views, layouts, `app_shell`) and checks they resolve to selectors in `branding.css`, checks every no-fallback `var(--x)` is defined, and checks **root offset classes**: an `html.<class>`/`body.<class>` rule setting a non-trivial `padding-top` is the CSS fingerprint of a fixed top toolbar's offset — if `app_shell` exists but `app_shell.root_classes` omits every such class, the gate fails (mockups built from that map render the fixed bar OVER the sidebar/content). It exits non-zero on failure (except on the known-degraded `fallback_synthesis` floor, where it only reports).
+The script samples class/id tokens from the structure map's real views (`route_index` primary views, layouts, `app_shell`) and checks they resolve to selectors in `branding.css`, checks every no-fallback `var(--x)` is defined, and checks **root offset classes**: an `html.<class>`/`body.<class>` rule setting a non-trivial `padding-top` is the CSS fingerprint of a fixed top toolbar's offset — if `app_shell` exists but `app_shell.root_classes` omits every such class, the gate fails (mockups built from that map render the fixed bar OVER the sidebar/content). It also checks **theme-switch tokens**: a class the bundle scopes a whole colour scheme under (hundreds of `.dark …` / `.bp4-dark …` rules) must appear in `color_scheme` and never in `root_classes`, or the gate fails. It exits non-zero on failure (except on the known-degraded `fallback_synthesis` floor, where it only reports).
 
 **When it fails, repair and re-run this block until it passes — do not proceed with a failing gate:**
 - A `[FAIL]`-coverage view means that surface loads stylesheet(s) the bundle misses. Find what the view actually loads — its `<link>`/enqueue/import wiring, not the main bundle's import list — and append those files.
 - Undefined vars mean a theme/scheme/tokens stylesheet (often build-emitted) is missing. Append the file that defines them; if they are genuinely runtime-injected, append a `:root { … }` block assigning the real values you detected in STEP 2.
 - A root-offset-class failure is a **`project_map.json` repair, not a CSS repair**: chase the root-class emission (the layout, or the helper it calls) per STEP 4.6 and record the resolved default-user tokens in `app_shell.root_classes`.
+- A theme-switch failure is also a **`project_map.json` repair**: record the token under `color_scheme.dark` (or `.light`) per STEP 4.6 item 4, remove it from `app_shell.root_classes`, and set `default` to `light` unless the app has no light theme.
 - After appending CSS, re-run `sanitize_css.js` and this gate.
 
 If a probed view is a false alarm (e.g. a template whose classes are generated at runtime by a JS framework), say so explicitly in your summary — but the gate itself already skips views with too few literal tokens, so treat failures as real by default.
@@ -1377,6 +1421,8 @@ else
   echo "MULTI_REPO=no"
 fi
 ```
+
+**One call.** When STEP 0 listed no related repositories, run the 6a block, the 6b/6c heredocs and the closing `json_get.js --valid` checks as ONE Bash call — you already know everything 6b and 6c need. Only a multi-repo run (6a prints `MULTI_REPO=yes`) runs 6a first, because 6b then needs `surfaces.json` and a skim of each sibling.
 
 **6b — Project summary.** Write a SHORT project summary in markdown to `$OUT/summary.md` — **15–20 lines maximum, hard cap**. One or two lines each on: what the product does, tech stack, architecture shape, key directories, and notable user-facing feature areas. This is quick orientation context for later generation runs, not documentation — downstream consumers also get the structure map and explore the code themselves, so do not be comprehensive. **Write it inline from what you already learned in STEPS 1–5 — do not re-explore the codebase.** The one exception is `MULTI_REPO=yes`: skim each related repository first (its README, manifest and top-level directories — a handful of reads each, not an exploration) so the summary names every repository and what it contributes. Write the file with a Bash heredoc.
 

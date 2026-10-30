@@ -1001,6 +1001,37 @@ function inlineSvgSprites(html, projectDir, spriteCache) {
     return html;
 }
 
+const ICON_PLACEHOLDER_RE = /\{\{icon:([^}|\s]+)(?:\|([^}]*))?\}\}/g;
+
+/**
+ * Expand {{icon:<spec>}} / {{icon:<spec>|<classes>}} into an inline SVG sized
+ * 1em (it takes the surrounding font-size and colour; the classes size it
+ * otherwise). Specs are the spellings source code uses, resolved like
+ * `mockup_kit.js icons`. An unresolved spec leaves an empty 1em box and is
+ * reported, never a broken token.
+ */
+function expandIconPlaceholders(html, iconCache, missing) {
+    if (!html.includes('{{icon:')) return html;
+    const { resolveIcon } = require('./mockup_kit.js');
+    return html.replace(ICON_PLACEHOLDER_RE, (match, spec, cls) => {
+        if (!iconCache.has(spec)) {
+            let hit = null;
+            try { hit = resolveIcon(spec); } catch { hit = null; }
+            iconCache.set(spec, hit ? hit.svg : null);
+        }
+        const svg = iconCache.get(spec);
+        const classAttr = cls && cls.trim() ? ` class="${cls.trim().replace(/"/g, '')}"` : '';
+        if (!svg) {
+            missing.add(spec);
+            return `<span${classAttr} data-rtfm-icon-missing="${spec.replace(/"/g, '')}" style="display:inline-block;width:1em;height:1em"></span>`;
+        }
+        return svg.replace(/^<svg\b([^>]*)>/, (_, attrs) => {
+            const rest = attrs.replace(/\s(?:width|height|class)="[^"]*"/g, '');
+            return `<svg${rest} width="1em" height="1em" aria-hidden="true"${classAttr}>`;
+        });
+    });
+}
+
 /**
  * Mark <html> so the renderers' glyph-substitute fallback CSS (which uses
  * !important) knows real icon fonts are embedded and stands down.
@@ -1549,6 +1580,8 @@ async function processDir(htmlDir, cssFile, imagesJson, actionsJson, brandingJso
 
     let count = 0;
     const spriteCache = {};
+    const iconCache = new Map();
+    const missingIcons = new Set();
     for (const fname of fs.readdirSync(htmlDir).sort()) {
         if (!(fname.startsWith('step_') || fname.startsWith('block_')) || !fname.endsWith('.html')) continue;
         const fpath = path.join(htmlDir, fname);
@@ -1573,6 +1606,7 @@ async function processDir(htmlDir, cssFile, imagesJson, actionsJson, brandingJso
         if (!html.includes(INJECTED_SENTINEL)) html = injectCss(html, block);
         if (iconCss) html = injectIconFontsMarker(html);
         html = inlineSvgSprites(html, projectDir, spriteCache);
+        html = expandIconPlaceholders(html, iconCache, missingIcons);
         html = html.replace(/\{\{img:([^}]+)\}\}/g, replaceImg);
         html = html.replace(/\{\{generated:([a-z0-9]+(?:-[a-z0-9]+)*)\}\}/g,
             (match, id) => (Object.hasOwn(generatedImages, id) ? generatedImages[id] : match));
@@ -1612,6 +1646,8 @@ async function processDir(htmlDir, cssFile, imagesJson, actionsJson, brandingJso
         if (truthy(branding.google_fonts)) extras.push(`${branding.google_fonts.length} font(s)`);
     }
     if (Object.keys(generatedImages).length) extras.push(`${Object.keys(generatedImages).length} generated image(s)`);
+    if (iconCache.size) extras.push(`${iconCache.size - missingIcons.size} icon(s) inlined`);
+    if (missingIcons.size) console.log(`WARN: {{icon:…}} not resolved, left as an empty box: ${[...missingIcons].join(', ')} — use another spelling or draw that icon`);
     const extrasStr = extras.length ? `, ${extras.join(', ')}` : '';
     log(`${count} file(s) processed (${styleLabel}, ${Object.keys(images).length} image entries${extrasStr})`);
     return 0;
