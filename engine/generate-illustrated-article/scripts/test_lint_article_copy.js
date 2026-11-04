@@ -148,7 +148,20 @@ assert.equal(check.result.status,1,'unverified generated claims must not enter t
     assert.deepEqual(framing(run(french)), ['how-to title should start with "How to"']);
     assert.deepEqual(framing(run(french, { env: ctx('fr') })), []);
     assert.deepEqual(framing(run(howTo(), { env: ctx('fr') })), ['how-to title should start with "Comment"']);
-    assert.deepEqual(framing(run({ ...howTo(), title: 'Eine Nachricht senden' }, { env: ctx('de') })), []);
+    assert.deepEqual(framing(run({ ...howTo(), title: 'Een bericht versturen' }, { env: ctx('nl') })), [], 'an unlisted language skips framing');
+    for (const [code, good, hint] of [
+        ['de', 'Wie Sie eine Nachricht senden', '"Wie Sie"'],
+        ['de', 'Wie man eine Nachricht sendet', '"Wie Sie"'],
+        ['it', 'Come inviare un messaggio', '"Come"'],
+        ['es', 'Cómo enviar un mensaje', '"Cómo"'],
+    ]) {
+        assert.deepEqual(framing(run({ ...howTo(), title: good }, { env: ctx(code) })), [], `${code}: ${good}`);
+        assert.deepEqual(framing(run(howTo(), { env: ctx(code) })), [`how-to title should start with ${hint}`], `${code}: English framing`);
+    }
+    // A question is not a how-to, in any of them.
+    for (const [code, title] of [['de', 'Wie sende ich eine Nachricht?'], ['de', 'So senden Sie eine Nachricht'], ['it', 'Come si invia un messaggio?'], ['es', '¿Cómo envío un mensaje?']]) {
+        assert.equal(framing(run({ ...howTo(), title }, { env: ctx(code) })).length, 1, `${code}: ${title}`);
+    }
     fs.rmSync(ctxDir, { recursive: true, force: true });
 }
 console.log('lint_article_copy content-language tests passed');
