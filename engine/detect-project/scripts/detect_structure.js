@@ -140,7 +140,12 @@ function main() {
   const base = path.resolve(codebaseArg);
   let framework = frameworkArg && frameworkArg !== 'unknown' ? frameworkArg : detectFramework(base);
 
-  const fw = FRAMEWORKS[framework] || null;
+  // STEP 4.5 passes branding.json's framework label, which is often compound or a
+  // CSS framework ("rails+tailwind", "bootstrap"): take the conventions from a
+  // known part of it, else from the repo itself. The stamped label is unchanged.
+  const conventionKey = [framework, ...String(framework).split('+')].find(key => FRAMEWORKS[key])
+    || detectFramework(base);
+  const fw = FRAMEWORKS[conventionKey] || null;
   const dir_map = fw ? { ...fw.dir_map } : {};
   // Verify each mapped path actually exists; drop the ones that don't.
   for (const [k, v] of Object.entries(dir_map)) {
