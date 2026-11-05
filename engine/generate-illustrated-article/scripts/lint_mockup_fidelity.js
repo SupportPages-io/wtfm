@@ -105,7 +105,7 @@ function sameStringArray(a, b) {
 // stable regardless of which data-gated checks fire for a given step.
 const STEP_METRIC_KEYS = [
     'shell_nav_labels', 'chrome_files_expanded', 'runtime_ui_strings', 'runtime_regions_rendered',
-    'root_classes_html', 'layout_root_classes', 'verbatim_evidence_source', 'verbatim_evidence_html',
+    'root_classes_html', 'layout_root_classes', 'color_scheme_tokens', 'verbatim_evidence_source', 'verbatim_evidence_html',
     'partials_present', 'body_class_tokens', 'styled_coverage', 'inline_classes_verified',
     'invented_colours', 'invented_copy', 'screen_closure',
 ];
@@ -354,6 +354,15 @@ function findInventedColours(html, whitelists, limit = 10) {
     return found;
 }
 
+// A class named like a theme switch (dark / light / night / theme-*). Mirrors
+// detect-project/scripts/check_css_health.js THEME_TOKEN_NAME (source of truth);
+// used here only to stop enforcing a theme token a pre-color_scheme cache left
+// in root_classes.
+const THEME_TOKEN_NAME = /(?:^|[-_])(?:dark|light|night)(?:[-_]|$)|^theme[-_]|[-_]theme$/i;
+function looksLikeThemeToken(token) {
+    return THEME_TOKEN_NAME.test(token);
+}
+
 function extractHtmlClass(html) {
     const m = html.match(/<html\b[^>]*\bclass\s*=\s*["']([^"']*)["']/i);
     return m ? m[1] : '';
@@ -417,6 +426,9 @@ function normalizeActionText(value) {
     return decodeBasicHtmlEntities(value).replace(/[*_`]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+// The marked element's markup (nesting-aware, capped at 4000 chars) plus the text
+// that names it without being inside it — a <label for=id>, an enclosing <label>,
+// aria-labelledby targets — as the accessible-name computation does.
 function actionMarkerFragments(html, articleStepIndex) {
     const fragments = [];
     const marker = new RegExp(
@@ -424,14 +436,42 @@ function actionMarkerFragments(html, articleStepIndex) {
     );
     const voidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
         'link', 'meta', 'param', 'source', 'track', 'wbr']);
+    const textOfId = id => {
+        const open = html.match(new RegExp(`<([a-zA-Z][\\w:-]*)\\b[^>]*\\bid\\s*=\\s*["']${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>`));
+        return open ? elementAt(open.index, open[1].toLowerCase(), open[0]) : '';
+    };
+    const elementAt = (start, tag, openTag) => {
+        if (voidTags.has(tag)) return openTag;
+        const tagRe = new RegExp(`<(/?)${tag}\\b[^>]*>`, 'gi');
+        tagRe.lastIndex = start + openTag.length;
+        let depth = 1;
+        for (let m; (m = tagRe.exec(html));) {
+            if (m[1]) depth -= 1; else if (!m[0].endsWith('/>')) depth += 1;
+            if (depth === 0) return html.slice(start, Math.min(m.index + m[0].length, start + 4000));
+            if (m.index - start > 4000) break;
+        }
+        return html.slice(start, start + 4000);
+    };
     for (const match of html.matchAll(/<([a-zA-Z][a-zA-Z0-9:-]*)\b[^>]*>/g)) {
         if (!marker.test(match[0])) continue;
         const tag = match[1].toLowerCase();
-        let fragment = match[0];
-        if (!voidTags.has(tag)) {
-            const close = html.toLowerCase().indexOf(`</${tag}>`, match.index + match[0].length);
-            if (close !== -1) fragment = html.slice(match.index, Math.min(close + tag.length + 3, match.index + 4000));
+        let fragment = elementAt(match.index, tag, match[0]);
+        const names = [];
+        const id = match[0].match(/\bid\s*=\s*["']([^"']+)["']/i);
+        if (id) {
+            const forRe = new RegExp(`<label\\b[^>]*\\bfor\\s*=\\s*["']${id[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>`, 'gi');
+            for (const label of html.matchAll(forRe)) names.push(elementAt(label.index, 'label', label[0]));
         }
+        const labelledBy = match[0].match(/\baria-labelledby\s*=\s*["']([^"']+)["']/i);
+        if (labelledBy) for (const ref of labelledBy[1].split(/\s+/).filter(Boolean)) names.push(textOfId(ref));
+        const before = html.slice(Math.max(0, match.index - 4000), match.index);
+        const openLabel = before.toLowerCase().lastIndexOf('<label');
+        if (openLabel !== -1 && before.toLowerCase().indexOf('</label', openLabel) === -1) {
+            const start = match.index - before.length + openLabel;
+            const openTag = html.slice(start).match(/^<label\b[^>]*>/i);
+            if (openTag) names.push(elementAt(start, 'label', openTag[0]));
+        }
+        if (names.length) fragment += names.join('');
         fragments.push(fragment);
     }
     return fragments;
@@ -1612,6 +1652,14 @@ function main() {
     // keeps the fixed admin bar off the content), so a mockup that renders the
     // shell but drops the root class paints the bar OVER the page.
     let rootShell = null;
+    // Theme (project_map.color_scheme, detect STEP 4.6): the class tokens the
+    // app toggles between its light and dark schemes, kept OUT of root_classes,
+    // plus the scheme the mockups render (light unless the app has no light
+    // theme). A mockup carrying the OTHER scheme's token switches the whole
+    // bundle to the theme the article does not use — observed: detect had
+    // recorded `bp4-dark` as a root class, the lint enforced it, and every
+    // article then spent dozens of turns overriding 1,200+ dark rules.
+    let colorScheme = null;
     // Game-mode backstops (same rationale): (1) every game mockup renders inside
     // exactly one .game-screen — a fixed-size IN-FLOW playfield; content authored
     // as position:fixed layers over an auto-height body measures a 0-height
@@ -1666,10 +1714,39 @@ function main() {
                 canvasFile: (pm.game_metadata || {}).canvas_file || null,
             };
         }
+        const toTokens = v => (Array.isArray(v) ? v : String(v || '').split(/\s+/)).filter(Boolean);
+        const cs = pm.color_scheme;
+        if (cs && typeof cs === 'object' && ['light', 'dark'].includes(cs.default)) {
+            const sets = {};
+            for (const mode of ['light', 'dark']) {
+                const set = cs[mode] && typeof cs[mode] === 'object' ? cs[mode] : {};
+                sets[mode] = { html: toTokens(set.html), body: toTokens(set.body) };
+            }
+            colorScheme = { def: cs.default, other: cs.default === 'light' ? 'dark' : 'light', sets };
+        }
         const rc = pm.app_shell && pm.app_shell.root_classes;
         if (rc) {
-            const toTokens = v => (Array.isArray(v) ? v : String(v || '').split(/\s+/)).filter(Boolean);
-            const htmlTokens = toTokens(rc.html);
+            let htmlTokens = toTokens(rc.html);
+            if (colorScheme) {
+                // Theme tokens live in color_scheme (the detect gate fails a copy
+                // in root_classes); the root carries the default scheme's tokens.
+                const themed = new Set([...colorScheme.sets.light.html, ...colorScheme.sets.dark.html]);
+                htmlTokens = htmlTokens.filter(t => !themed.has(t)).concat(colorScheme.sets[colorScheme.def].html);
+            } else {
+                // Stale-cache backstop: a cache written before color_scheme may
+                // hold a theme switch in root_classes. Don't force it onto the
+                // mockups (the article renders the light theme); say why.
+                const stale = htmlTokens.filter(looksLikeThemeToken);
+                if (stale.length) {
+                    htmlTokens = htmlTokens.filter(t => !stale.includes(t));
+                    report.global_warnings.push(
+                        `cached app_shell.root_classes.html carries theme-switch token(s) ${stale.join(', ')} ` +
+                        `and the map records no color_scheme — the cache predates it (rtfm-skills v1.64.0). ` +
+                        `The token is not enforced on mockups: render the light theme without it, and ` +
+                        `re-run /detect-project to record color_scheme.`
+                    );
+                }
+            }
             const navLabels = (pm.app_shell.nav_items || [])
                 .map(n => n && n.label).filter(l => typeof l === 'string' && l.length >= 3);
             if (htmlTokens.length && navLabels.length >= 2) rootShell = { htmlTokens, navLabels };
@@ -2230,9 +2307,46 @@ function main() {
                         `<html> element is missing class token(s) recorded in app_shell.root_classes: ` +
                         `${missing.join(', ')}. These are load-bearing — fixed-chrome offsets ` +
                         `(html.<class> { padding-top: … }) and theme scoping hang on them; without them ` +
-                        `fixed top bars overlap the content. Add them to the mockup's <html> tag.`
+                        `fixed top bars overlap the content. Add them to the mockup's <html> tag.` +
+                        (colorScheme ? ` (Theme tokens come from project_map.color_scheme.${colorScheme.def}.)` : '')
                     );
                 }
+            }
+        }
+        if (!externalStep && colorScheme && stepHtml) {
+            // The mockup renders color_scheme.default and never the other scheme.
+            // Foreign tokens are an error on EVERY step (a login page in the wrong
+            // theme is as wrong as a dashboard); the default scheme's <body>
+            // tokens are required on shell-rendering steps (<html> is covered by
+            // the root_classes check above, which already carries them).
+            const have = {
+                html: new Set(extractHtmlClass(stepHtml).split(/\s+/).filter(Boolean)),
+                body: new Set((extractBodyClass(stepHtml) || '').split(/\s+/).filter(Boolean)),
+            };
+            const own = colorScheme.sets[colorScheme.def];
+            const foreign = [];
+            for (const root of ['html', 'body']) {
+                for (const t of colorScheme.sets[colorScheme.other][root]) {
+                    if (have[root].has(t) && !own[root].includes(t)) foreign.push(`<${root}> ${t}`);
+                }
+            }
+            const defBody = navHits >= 2 ? own.body : [];
+            const missingBody = defBody.filter(t => !have.body.has(t));
+            metrics.color_scheme_tokens = metricRatio(
+                (defBody.length - missingBody.length) + (foreign.length ? 0 : 1), defBody.length + 1);
+            if (foreign.length) {
+                errors.push(
+                    `this mockup carries the ${colorScheme.other} theme's token(s) ${foreign.join(', ')}, but ` +
+                    `project_map.color_scheme.default is ${colorScheme.def}: help-centre screenshots render the ` +
+                    `default scheme only. Remove the token(s) rather than overriding the ${colorScheme.other} ` +
+                    `theme's rules.`
+                );
+            }
+            if (missingBody.length) {
+                errors.push(
+                    `<body> is missing the ${colorScheme.def} theme token(s) project_map.color_scheme records: ` +
+                    `${missingBody.join(', ')}. The default scheme's tokens go on the root(s) the app puts them on.`
+                );
             }
         }
         if (!externalStep && gameShell) {
@@ -2400,4 +2514,6 @@ function main() {
     process.exit(0);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { actionMarkerFragments, fragmentShowsActionTarget, normalizeActionText, evidenceStrings };
