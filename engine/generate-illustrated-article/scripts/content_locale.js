@@ -41,6 +41,62 @@ const RULES = {
         ],
         coordination: /(?:^|[^\p{L}])(?:et|ou)(?=$|[^\p{L}])/iu,
     },
+    de: {
+        // "Wie Sie ein Projekt erstellen" — a statement that keeps the goal's
+        // infinitive word order, so the title contains the plan's canonical_goal
+        // ("ein Projekt erstellen"). "So erstellen Sie …" moves the verb and would
+        // not. "Wie erstelle ich ein Projekt?" is a question (FAQ).
+        howTo: /^wie (?:sie|man)(?![\p{L}])(?!.*\?\s*$)/iu,
+        howToHint: '"Wie Sie"',
+        // "Was ist ein Projekt?", "Projekte verstehen", "Grundlagen …", "Über …".
+        concept: /^(?:was (?:ist|sind)(?![\p{L}])|grundlagen(?![\p{L}])|überblick(?![\p{L}])|einführung(?![\p{L}])|über(?![\p{L}]))|(?:^|\s)verstehen\s*$/iu,
+        // German questions open with a question word or with the verb
+        // ("Kann ich …?", "Gibt es …?").
+        faq: /^(?:wie|was|warum|wieso|weshalb|wozu|wo|woher|wohin|womit|wofür|worauf|wann|welche[rsmn]?|wer|wen|wem|kann|können|darf|dürfen|muss|müssen|soll|sollte|gibt|ist|sind|hat|haben|wird|werden|lässt|funktioniert|unterstützt|brauche|benötige)(?![\p{L}])/iu,
+        inferTroubleshooting: /^(?:warum(?![\p{L}])|was (?:tun|ist zu tun),? (?:wenn|falls)(?![\p{L}])|fehlerbehebung(?![\p{L}]))/iu,
+        inferConcept: /^(?:was (?:ist|sind)(?![\p{L}])|grundlagen(?![\p{L}])|überblick(?![\p{L}])|einführung(?![\p{L}]))|(?:^|\s)verstehen\s*$/iu,
+        inferFaq: /^(?:kann|können|darf|dürfen|muss|müssen|gibt|wann|wo|welche[rsmn]?)(?![\p{L}])/iu,
+        prefixes: [
+            'wie sie ', 'wie man ', 'was tun wenn ', 'was tun falls ', 'was ist zu tun wenn ',
+            'was ist ', 'was sind ', 'grundlagen ', 'warum ',
+        ],
+        coordination: /(?:^|[^\p{L}])(?:und|oder)(?=$|[^\p{L}])/iu,
+    },
+    it: {
+        // "Come creare un progetto" — a statement; "Come si crea un progetto?" is a question.
+        howTo: /^come(?![\p{L}])(?!.*\?\s*$)/iu,
+        howToHint: '"Come"',
+        concept: /^(?:capire|comprendere|informazioni su|(?:che )?cos['’](?:è|e)|(?:che )?cosa (?:è|sono))(?![\p{L}])/iu,
+        // A question word, or the verb a yes/no question opens with ("Posso …?",
+        // "Si può …?", "È possibile …?").
+        faq: /^(?:come|perché|perche|dove|quando|quant[oaie]|chi|che|cosa|cos['’]|qual|quale|quali|posso|possiamo|si può|si possono|è possibile|devo|serve|esiste|c['’]è|ci sono)(?![\p{L}])/iu,
+        inferTroubleshooting: /^(?:perché|perche|(?:che )?cosa fare (?:se|quando)|risoluzione dei problemi)(?![\p{L}])/iu,
+        inferConcept: /^(?:capire|comprendere|informazioni su|(?:che )?cos['’](?:è|e)|(?:che )?cosa (?:è|sono))(?![\p{L}])/iu,
+        inferFaq: /^(?:dove|quando|quant[oaie]|qual|quale|quali|posso|possiamo|si può|è possibile|devo)(?![\p{L}])/iu,
+        prefixes: [
+            'come ', 'cosa fare se ', 'cosa fare quando ', 'che cosa fare se ', 'che cosa fare quando ',
+            'capire ', 'comprendere ', 'che cose ', 'cose ', 'che cosa sono ', 'cosa sono ', 'perche ',
+        ],
+        // "è" (is) is a different letter from "e" (and), so it never matches.
+        coordination: /(?:^|[^\p{L}])(?:e|ed|o|oppure)(?=$|[^\p{L}])/iu,
+    },
+    es: {
+        // "Cómo crear un proyecto" — a statement; "¿Cómo creo un proyecto?" is a question.
+        howTo: /^c[oó]mo(?![\p{L}])(?!.*\?\s*$)/iu,
+        howToHint: '"Cómo"',
+        concept: /^(?:¿?qu[eé] (?:es|son)|entender|comprender|información sobre|acerca de)(?![\p{L}])/iu,
+        // Spanish questions open with "¿", whatever their first word.
+        faq: /^¿/,
+        inferTroubleshooting: /^(?:¿?por qu[eé]|qu[eé] hacer (?:si|cuando)|soluci[oó]n de problemas)(?![\p{L}])/iu,
+        inferConcept: /^(?:¿?qu[eé] (?:es|son)|entender|comprender|información sobre|acerca de)(?![\p{L}])/iu,
+        inferFaq: /^¿/,
+        prefixes: [
+            'como ', 'que hacer si ', 'que hacer cuando ', 'entender ', 'comprender ',
+            'que es ', 'que son ', 'por que ',
+        ],
+        // "y"/"o", and their forms before i-/o- words ("e", "u").
+        coordination: /(?:^|[^\p{L}])(?:y|o|e|u)(?=$|[^\p{L}])/iu,
+    },
 };
 
 function localeCode(value) {

@@ -135,6 +135,12 @@ assert.deepStrictEqual(
     assert.deepStrictEqual(check('game', game), []);
     assert.match(check('game', { ...game, route_index: { play: { method: 'CANVAS', scene_anatomy: { layers: [] } } } }).join('\n'), /layers/);
     assert.match(check('mobile', { app_type: 'web', app_type_source: 'x' }).join('\n'), /app_type must be "mobile"/);
+    // color_scheme: optional; when present it is shaped, and never duplicated into root_classes.
+    const scheme = { default: 'light', switchable: true, light: { html: [], body: [] }, dark: { html: ['bp4-dark'], body: ['bp4-dark'] }, source: 'public/preload-theme.js' };
+    assert.deepStrictEqual(check('web', { ...web, color_scheme: scheme }), []);
+    assert.match(check('web', { ...web, color_scheme: { ...scheme, default: 'auto' } }).join('\n'), /color_scheme\.default must be "light" or "dark"/);
+    assert.match(check('web', { ...web, color_scheme: { ...scheme, dark: { html: 'bp4-dark', body: [] } } }).join('\n'), /color_scheme\.dark\.html must be an array/);
+    assert.match(check('web', { ...web, color_scheme: scheme, app_shell: { root_classes: { html: ['bp4-dark'], body: [] } } }).join('\n'), /root_classes\.html repeats color_scheme token\(s\) bp4-dark/);
     assert.strictEqual(run('check_project_map.js', ['game', write('game.json', game)]).status, 0);
 }
 
