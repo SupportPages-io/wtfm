@@ -64,7 +64,7 @@ jobs:
           node scripts/build-release.mjs --runtime-dir "$runtime_dir" --out release
       - name: Install and update without system Node on PATH
         run: node scripts/smoke-release.mjs --directory release
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cli-${{ matrix.runner }}
           path: release/*
@@ -89,7 +89,7 @@ jobs:
           merge-multiple: true
       - name: Verify all four archives and prepare installer and manifest
         run: node scripts/publish-release.mjs --directory release --dry-run
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cli-release
           path: release/*
